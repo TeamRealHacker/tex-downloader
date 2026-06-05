@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <rect width="128" height="128" rx="24" fill="#000000"/>
+  <!-- T letter: 9x9 pixel grid, centered -->
+  <!-- Top bar: row 2, cols 2-6 -->
+  <rect x="24" y="24" width="8" height="8" rx="1" fill="#D7191A"/>
+  <rect x="34" y="24" width="8" height="8" rx="1" fill="#D7191A"/>
+  <rect x="44" y="24" width="8" height="8" rx="1" fill="#D7191A"/>
+  <rect x="54" y="24" width="8" height="8" rx="1" fill="#D7191A"/>
+  <rect x="64" y="24" width="8" height="8" rx="1" fill="#D7191A"/>
+  <!-- Stem: col 4, rows 3-8 -->
+  <rect x="44" y="34" width="8" height="8" rx="1" fill="#D7191A"/>
+  <rect x="44" y="44" width="8" height="8" rx="1" fill="#D7191A"/>
+  <rect x="44" y="54" width="8" height="8" rx="1" fill="#D7191A"/>
+  <rect x="44" y="64" width="8" height="8" rx="1" fill="#D7191A"/>
+  <rect x="44" y="74" width="8" height="8" rx="1" fill="#D7191A"/>
+</svg>
