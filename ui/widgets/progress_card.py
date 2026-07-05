@@ -19,7 +19,7 @@ def _human_bytes(n: float) -> str:
     n = float(n)
     for unit in ("B", "KB", "MB", "GB", "TB"):
         if abs(n) < 1024.0:
-            return f"{n:3.1f} {unit}"
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:3.1f} {unit}"
         n /= 1024.0
     return f"{n:.1f} PB"
 

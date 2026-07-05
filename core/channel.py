@@ -13,7 +13,7 @@ import yt_dlp
 from yt_dlp.utils import DownloadError
 
 from . import config
-from .detector import Platform, detect
+from .detector import Platform, detect, is_yt_url
 from .metadata import _friendly_err, ffmpeg_location
 
 
@@ -55,8 +55,9 @@ def _to_video_entry(e: dict[str, Any], fallback_url: str) -> dict:
     eid = e.get("id", "")
     eurl = e.get("webpage_url") or e.get("url") or ""
     if not eurl.startswith("http"):
-        # YouTube flat entries often have a bare id — build the watch URL.
-        if eid:
+        # Only build a YouTube watch URL if the fallback is YouTube.
+        fallback_lower = (fallback_url or "").lower()
+        if eid and ("youtube.com" in fallback_lower or "youtu.be" in fallback_lower):
             eurl = f"https://www.youtube.com/watch?v={eid}"
         else:
             eurl = fallback_url
@@ -90,12 +91,17 @@ def _to_video_entry(e: dict[str, Any], fallback_url: str) -> dict:
     }
 
 
-def _filter_short(entry: dict, want: str) -> bool:
+def _filter_short(entry: dict, want: str, platform: str = "") -> bool:
     """True if the entry should be kept given the user's filter."""
     if want == "all":
         return True
     eurl = (entry.get("url") or entry.get("webpage_url") or "").lower()
     is_short = "/shorts/" in eurl
+    # TikTok: short-form is the default; treat as "shorts" unless duration > 3min.
+    if not is_short and platform in ("tiktok", "instagram"):
+        dur = entry.get("duration") or 0
+        if dur and int(dur) <= 180:
+            is_short = True
     if want == "shorts":
         return is_short
     if want == "videos":
@@ -165,7 +171,7 @@ def fetch_channel(url: str, content_type: str = "videos",
         if not e:
             continue
         norm = _to_video_entry(e, target_url)
-        if not _filter_short(norm, content_type):
+        if not _filter_short(norm, content_type, platform):
             continue
         entries.append(norm)
         if len(entries) >= max_count:

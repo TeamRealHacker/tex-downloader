@@ -16,7 +16,7 @@ def install(window) -> None:
     sc_focus.activated.connect(window.shortcut_focus_url)
 
     sc_enter = QShortcut(QKeySequence("Return"), window)
-    sc_enter.setContext(Qt.ShortcutContext.ApplicationShortcut)
+    sc_enter.setContext(Qt.ShortcutContext.WidgetShortcut)
     sc_enter.activated.connect(window.shortcut_enter)
 
     sc_esc = QShortcut(QKeySequence("Escape"), window)

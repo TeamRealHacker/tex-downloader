@@ -12,7 +12,7 @@ _URL_RE = re.compile(r"https?://[^\s<>\"']+")
 
 
 class ClipboardWatcher(QObject):
-    url_detected = Signal(str)
+    urls_detected = Signal(list)
 
     def __init__(self, interval_ms: int = 1200, parent=None):
         super().__init__(parent)
@@ -45,4 +45,4 @@ class ClipboardWatcher(QObject):
         self._last = text
         urls = extract_urls(text)
         if urls:
-            self.url_detected.emit(urls[0])
+            self.urls_detected.emit(urls)

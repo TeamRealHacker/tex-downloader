@@ -80,7 +80,7 @@ def save(cfg: dict[str, Any]) -> None:
         json.dump(cfg, f, indent=2)
     try:
         os.replace(tmp, CONFIG_PATH)
-    except PermissionError:
+    except OSError:
         # Windows: file may be locked by antivirus or another instance.
         # Best-effort: try to remove the old file first, then rename.
         try:

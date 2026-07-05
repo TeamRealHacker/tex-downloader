@@ -49,15 +49,13 @@ def _entry_thumb_url(entry: dict) -> str:
     """Best-effort thumbnail URL for a flat entry — YouTube or generic."""
     eid = entry.get("id") or ""
     eurl = (entry.get("url") or entry.get("webpage_url") or "").lower()
-    if "youtube.com" in eurl or "youtu.be" in eurl:
-        if eid:
-            return _YT_THUMB.format(id=eid)
+    is_yt = "youtube.com" in eurl or "youtu.be" in eurl
     thumbs = entry.get("thumbnails") or []
     for t in thumbs:
         u = (t.get("url") or "").strip()
         if u and "googleusercontent" not in u:
             return u
-    if eid:
+    if is_yt and eid:
         return _YT_THUMB.format(id=eid)
     return ""
 
@@ -162,6 +160,8 @@ class _ThumbQueue(QObject):
         self._active = False
         self._current_vid = ""
         self._current_row = None
+        if hasattr(self, '_loader') and self._loader:
+            self._loader.deleteLater()
         self._loader = None
         # Process next — defer to next event loop tick so we don't block.
         QTimer.singleShot(0, self._pump)

@@ -15,6 +15,8 @@ from . import config
 from .detector import (
     Platform,
     detect,
+    is_multi_item_url,
+    is_yt_url,
     youtube_playlist_id,
     youtube_video_id,
 )
@@ -130,19 +132,27 @@ def _compute_format_sizes(info: dict[str, Any]) -> dict[str, int]:
         best_audio_size = 0
     for opt in MP4_QUALITIES:
         h = int(opt.key.replace("p", ""))
-        cand = [
-            x for x in fmts
-            if 0 < (x.get("height") or 0) <= h
-            and x.get("vcodec") not in (None, "none")
-        ]
+        cand = []
+        for x in fmts:
+            if x.get("vcodec") in (None, "none"):
+                continue
+            fh = x.get("height") or 0
+            if not fh:
+                res = x.get("resolution") or ""
+                try:
+                    fh = int(res.split("x")[0])
+                except (ValueError, IndexError):
+                    fh = x.get("width") or 0
+            if 0 < fh <= h:
+                cand.append(x)
         if not cand:
             continue
-        cand.sort(key=lambda x: ((x.get("height") or 0), (x.get("tbr") or 0)))
+        cand.sort(key=lambda x: ((x.get("height") or x.get("width") or 0), (x.get("tbr") or 0)))
         v = cand[-1]
         v_size = v.get("filesize") or v.get("filesize_approx") or 0
         # We mux video+audio on download, so the total ≈ sum (with some overhead)
         if v_size:
-            out[opt.key] = min(int(v_size) + int(best_audio_size), 2_147_483_647) if best_audio_size else int(v_size)
+            out[opt.key] = min(int(v_size) + int(best_audio_size), 100_000_000_000) if best_audio_size else int(v_size)
     for opt in MP3_QUALITIES:
         if not audios:
             continue
@@ -237,11 +247,12 @@ def fetch(url: str, no_cookies: bool = False) -> FetchResult:
     is_playlist = (
         platform == "youtube_playlist"
         or ("list=" in url and "v=" not in url)
+        or is_multi_item_url(url)
     )
     if is_playlist:
         opts["extract_flat"] = True
-        # Bound memory + UI cost for very large playlists.
-        opts["playlist_items"] = "1-200"
+        if platform not in ("tiktok", "instagram"):
+            opts["playlist_items"] = "1-200"
 
     with yt_dlp.YoutubeDL(opts) as ydl:
         try:
@@ -284,8 +295,8 @@ def _entry_url(entry: dict[str, Any], fallback: str) -> str:
         return u
     # Only construct a YouTube watch URL if the entry is actually from YouTube.
     eid = entry.get("id")
-    eurl_lower = (u or "").lower()
-    is_yt = "youtube.com" in eurl_lower or "youtu.be" in eurl_lower
+    fallback_lower = (fallback or "").lower()
+    is_yt = "youtube.com" in fallback_lower or "youtu.be" in fallback_lower
     if eid and len(eid) >= 6 and is_yt:
         return f"https://www.youtube.com/watch?v={eid}"
     return fallback

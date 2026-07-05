@@ -15,6 +15,9 @@ _TW_DOMAINS = ("twitter.com", "x.com", "t.co")
 
 _URL_RE = re.compile(r"https?://[^\s<>\"']+")
 
+# Platforms whose user/profile pages act as playlists (multi-item).
+_MULTI_ITEM_DOMAINS = _TT_DOMAINS + _IG_DOMAINS + _TW_DOMAINS
+
 
 def extract_urls(text: str) -> list[str]:
     return _URL_RE.findall(text or "")
@@ -67,3 +70,33 @@ def youtube_video_id(url: str) -> str | None:
 def youtube_playlist_id(url: str) -> str | None:
     m = re.search(r"[?&]list=([A-Za-z0-9_-]{6,})", url)
     return m.group(1) if m else None
+
+
+def is_multi_item_url(url: str) -> bool:
+    u = url.lower().strip()
+    host = _host(u)
+    if "list=" in u:
+        return True
+    if any(d in host for d in _YT_DOMAINS):
+        path = re.sub(r"https?://[^/]+", "", u)
+        if re.match(r"^(/@|/channel/|/c/|/user/)", path):
+            return True
+    if any(d in host for d in _TT_DOMAINS):
+        path = re.sub(r"https?://[^/]+", "", u)
+        if re.match(r"^/@[^/]+$", path):
+            return True
+    if any(d in host for d in _IG_DOMAINS):
+        path = re.sub(r"https?://[^/]+", "", u)
+        if re.match(r"^/[^/]+/?$", path) and "/p/" not in path and "/reel/" not in path:
+            return True
+    if any(d in host for d in _TW_DOMAINS):
+        path = re.sub(r"https?://[^/]+", "", u)
+        if re.match(r"^/[^/]+/?$", path) and "/status/" not in path:
+            return True
+    return False
+
+
+def is_yt_url(url: str) -> bool:
+    u = url.lower()
+    host = _host(u)
+    return any(d in host for d in _YT_DOMAINS)

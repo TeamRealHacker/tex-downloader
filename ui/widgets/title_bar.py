@@ -366,6 +366,8 @@ class TitleBar(QFrame):
             if not isinstance(eff, QGraphicsColorizeEffect):
                 eff = QGraphicsColorizeEffect(self._title)
                 self._title.setGraphicsEffect(eff)
+            if hasattr(self, '_pulse_anim') and self._pulse_anim is not None:
+                self._pulse_anim.stop()
             eff.setColor(QColor("#FFFFFF"))
             a = QPropertyAnimation(eff, b"strength", self._title)
             a.setDuration(1100)
@@ -374,5 +376,9 @@ class TitleBar(QFrame):
             a.setEndValue(0.0)
             a.setLoopCount(-1)
             a.start()
+            self._pulse_anim = a
         else:
+            if hasattr(self, '_pulse_anim') and self._pulse_anim is not None:
+                self._pulse_anim.stop()
+                self._pulse_anim = None
             self._title.setGraphicsEffect(None)

@@ -38,7 +38,8 @@ def load_all() -> list[HistoryEntry]:
             data = json.load(f)
     except Exception:
         return []
-    return [HistoryEntry(**x) for x in data]
+    _FIELDS = set(HistoryEntry.__dataclass_fields__)
+    return [HistoryEntry(**{k: v for k, v in x.items() if k in _FIELDS}) for x in data]
 
 
 def add(entry: HistoryEntry) -> list[HistoryEntry]:
@@ -56,7 +57,14 @@ def _save(items: list[HistoryEntry]) -> None:
     with tmp.open("w", encoding="utf-8") as f:
         json.dump([asdict(i) for i in items], f, indent=2)
     import os
-    os.replace(tmp, p)
+    try:
+        os.replace(tmp, p)
+    except OSError:
+        try:
+            p.unlink(missing_ok=True)
+            tmp.rename(p)
+        except OSError:
+            pass
 
 
 def try_get_size(path: str) -> int:

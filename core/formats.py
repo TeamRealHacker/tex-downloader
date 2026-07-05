@@ -17,10 +17,11 @@ VIDEO_RUNG_HEIGHT = 2160
 
 
 def _video_prefer_mp4(height: int) -> str:
-    # Even if muxer not available, ask for mp4.
     return (
-        f"bv*[height<={height}][ext=mp4]+ba[ext=m4a]/b[height<={height}][ext=mp4]"
-        f"/bv*[height<={height}]+ba/b[height<={height}]"
+        f"bv*[height<={height}][ext=mp4]+ba[ext=m4a]"
+        f"/b[height<={height}][ext=mp4]"
+        f"/bv*[height<={height}]+ba"
+        f"/b[height<={height}]"
     )
 
 

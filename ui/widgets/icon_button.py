@@ -296,6 +296,8 @@ class IconTextButton(QFrame):
 
     def _refresh_arrow(self) -> None:
         color = self._theme["fg"]
+        if self.property("hot") in ("hover", "active"):
+            color = "#FFFFFF"
         self._arrow.setProperty("iconColor", color)
         self._arrow.setPixmap(icons.render(self._icon_name, color, self._icon_size))
 

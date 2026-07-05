@@ -149,8 +149,13 @@ class FormatPicker(QFrame):
         self.selected.emit(opt)
 
     def selected_option(self) -> QualityOption:
+        # Return the currently selected option if available, else fallback
+        # to the best available option (first available in the preferred order).
         for opt in MP4_QUALITIES + MP3_QUALITIES:
-            if opt.key == self._selected_key:
+            if opt.key == self._selected_key and self._chips[opt.key].is_available():
+                return opt
+        for opt in MP4_QUALITIES + MP3_QUALITIES:
+            if self._chips[opt.key].is_available():
                 return opt
         return MP4_QUALITIES[2]
 

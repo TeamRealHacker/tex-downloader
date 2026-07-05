@@ -255,7 +255,7 @@ class TexWindow(QMainWindow):
         # Clipboard
         from core.clipboard import ClipboardWatcher
         self.clip_watcher = ClipboardWatcher(interval_ms=1500, parent=self)
-        self.clip_watcher.url_detected.connect(self._on_url_from_clipboard)
+        self.clip_watcher.urls_detected.connect(self._on_urls_from_clipboard)
         if config.get("watch_clipboard", True):
             self.clip_watcher.start()
 
@@ -728,6 +728,14 @@ class TexWindow(QMainWindow):
         self._set_state("fetching")
         self._show_toast("Fetching\u2026")
         self.sound.play("fetch")
+        # Disconnect old worker signals to prevent double-fire
+        if self._fetch_worker is not None:
+            try:
+                self._fetch_worker.ok.disconnect()
+                self._fetch_worker.fail.disconnect()
+                self._fetch_worker.retried_without_cookies.disconnect()
+            except RuntimeError:
+                pass
         self._fetch_worker = _FetchWorker(url)
         self._fetch_worker.ok.connect(self._on_fetch_ok)
         self._fetch_worker.fail.connect(self._on_fetch_fail)
@@ -786,9 +794,14 @@ class TexWindow(QMainWindow):
         elif result.kind == "playlist" and result.playlist:
             p = result.playlist
             try:
-                pp = playlist.parse(self.url_bar.text())
-                pre = playlist.precheck_ids(p.entries, pp.current_video_id)
-                pre_check_id = pp.current_video_id
+                from core.detector import is_yt_url as _is_yt
+                pp = playlist.parse(self.url_bar.text()) if _is_yt(self.url_bar.text()) else None
+                if pp:
+                    pre = playlist.precheck_ids(p.entries, pp.current_video_id)
+                    pre_check_id = pp.current_video_id
+                else:
+                    pre = set()
+                    pre_check_id = None
             except Exception:
                 pre = set()
                 pre_check_id = None
@@ -929,9 +942,11 @@ class TexWindow(QMainWindow):
         for it in self.queue.all_items():
             if it.item_id == item_id:
                 if ok:
-                    card.set_path(result)
-                    card.set_status("done")
-                    self._show_toast(f"Done \u00B7 {it.req.title[:50]}")
+                    if card:
+                        card.set_path(result)
+                        card.set_status("done")
+                    title = it.req.title or "Download"
+                    self._show_toast(f"Done \u00B7 {title[:50]}")
                     self.sound.play("done")
                     self._done_count += 1
                     if it.req.audio_only:
@@ -939,7 +954,7 @@ class TexWindow(QMainWindow):
                             from core import tags as _tags
                             _tags.tag_mp3(
                                 Path(result), title=it.req.title,
-                                artist=it.req.uploader, album="Tex downloads",
+                                artist=it.req.uploader, album=it.req.uploader or "Tex",
                             )
                         except Exception:
                             pass
@@ -955,12 +970,15 @@ class TexWindow(QMainWindow):
                     except Exception:
                         pass
                 else:
-                    if "Cancel" in result:
-                        card.set_status("cancelled")
+                    err_msg = result
+                    if "Cancel" in err_msg:
+                        if card:
+                            card.set_status("cancelled")
                     else:
-                        card.set_status("error")
-                        card.file_lbl.setText(f"Error \u00B7 {result}")
-                        self._show_toast(f"Error \u00B7 {result[:60]}", 4000)
+                        if card:
+                            card.set_status("error")
+                            card.file_lbl.setText(f"Error \u00B7 {err_msg}")
+                        self._show_toast(f"Error \u00B7 {err_msg[:60]}", 4000)
                         self.sound.play("error")
                 break
         active = self.queue.active_count()
@@ -990,11 +1008,21 @@ class TexWindow(QMainWindow):
             if hasattr(self, "queue_empty") and self.queue_empty is not None:
                 self.queue_empty.setVisible(True)
                 self._position_queue_empty()
-        self.sidebar.set_badge("queue", 0)
+        self.sidebar.set_badge("queue", sum(
+            1 for it in self.queue.all_items()
+            if it.status in ("active", "paused", "pending")
+        ))
         self._show_toast("Cleared")
 
     # ---------- Channel tab ----------
     def _on_channel_fetch(self, url: str, content_type: str, max_count: int) -> None:
+        # Disconnect old worker signals to prevent double-fire
+        if hasattr(self, '_channel_worker') and self._channel_worker is not None:
+            try:
+                self._channel_worker.ok.disconnect()
+                self._channel_worker.fail.disconnect()
+            except RuntimeError:
+                pass
         self._channel_worker = _ChannelWorker(url, content_type, max_count)
         self._channel_worker.ok.connect(self._on_channel_ok)
         self._channel_worker.fail.connect(self._on_channel_fail)
@@ -1127,8 +1155,9 @@ class TexWindow(QMainWindow):
                 self._on_fetch(" \n".join(urls))
 
     # ---------- Clipboard ----------
-    def _on_url_from_clipboard(self, url: str) -> None:
-        if self.isActiveWindow():
+    def _on_urls_from_clipboard(self, urls: list) -> None:
+        if self.isActiveWindow() and urls:
+            url = urls[0]
             self._show_toast(f"URL detected \u00B7 {url[:40]}")
             self.sound.play("tick")
             self.url_bar.set_text(url)
@@ -1150,4 +1179,9 @@ class TexWindow(QMainWindow):
         if self.tray:
             self.tray.hide()
         self.queue.cancel_all()
+        # Wait for active workers to finish (up to 5s)
+        deadline = __import__("time").time() + 5
+        while self.queue.active_count() > 0 and __import__("time").time() < deadline:
+            QApplication.instance().processEvents()
+            __import__("time").sleep(0.1)
         QApplication.instance().quit()

@@ -104,15 +104,22 @@ class DownloaderWorker(QThread):
         out_dir.mkdir(parents=True, exist_ok=True)
 
         ext = "mp3" if quality.kind == "audio" else "mp4"
-        target = render_path(
-            req.template,
-            out_dir,
-            title=req.title, channel=req.uploader,
-            quality=quality.key, vid_id=req.vid_id, ext=ext,
-        )
-        target = unique_path(target)
+        from .detector import is_yt_url
+        use_mp4_merge = is_yt_url(req.url) if quality.kind != "audio" else False
 
-        outtmpl = str(target.with_suffix("")) + ".%(ext)s"
+        if req.title:
+            target = render_path(
+                req.template,
+                out_dir,
+                title=req.title, channel=req.uploader,
+                quality=quality.key, vid_id=req.vid_id, ext=ext,
+            )
+            target = unique_path(target)
+            outtmpl = str(target.with_suffix("")) + ".%(ext)s"
+        else:
+            # Bulk enqueue with no title — let yt-dlp name the file.
+            outtmpl = str(out_dir / "%(title).200s [%(id)s].%(ext)s")
+            target = None
 
         opts: dict[str, Any] = {
             "quiet": True,
@@ -157,7 +164,8 @@ class DownloaderWorker(QThread):
             opts["writethumbnail"] = False
         else:
             opts["format"] = quality.format_str
-            opts["merge_output_format"] = "mp4"
+            if use_mp4_merge:
+                opts["merge_output_format"] = "mp4"
 
         # Progress hook — throttled
         last_emit = [0.0]
@@ -191,7 +199,9 @@ class DownloaderWorker(QThread):
                         int(downloaded), int(total),
                     )
             elif d.get("status") == "finished":
-                self.progress.emit(self.tag, 100.0, 0.0, 0.0, 0, 0)
+                dl = d.get("downloaded_bytes") or 0
+                tot = d.get("total_bytes") or d.get("total_bytes_estimate") or dl
+                self.progress.emit(self.tag, 100.0, 0.0, 0.0, int(dl), int(tot))
                 self.status.emit(self.tag, "FINALIZING")
 
         opts["progress_hooks"] = [_hook]
@@ -210,21 +220,29 @@ class DownloaderWorker(QThread):
             ydl.download([req.url])
 
         # Compute final file path
-        if quality.kind == "audio":
-            final = target.with_suffix(".mp3")
+        if target is not None:
+            if quality.kind == "audio":
+                final = target.with_suffix(".mp3")
+            else:
+                final = target.with_suffix(".mp4")
+                if not final.exists():
+                    stem = target.stem.lower()
+                    for f in out_dir.iterdir():
+                        if f.stem.lower() == stem:
+                            final = f
+                            break
         else:
-            final = target.with_suffix(".mp4")
-            if not final.exists():
-                # ffmpeg merge may write a different ext — scan siblings
-                # using stem matching (NOT glob — [] in filenames are
-                # metacharacters and break glob patterns).
-                stem = target.stem.lower()
-                for f in out_dir.iterdir():
-                    if f.stem.lower() == stem:
-                        final = f
-                        break
+            # Bulk download with no pre-set target — scan for newest file.
+            final = None
+            if quality.kind == "audio":
+                pattern = "*.mp3"
+            else:
+                pattern = "*.mp4"
+            candidates = sorted(out_dir.glob(pattern), key=lambda f: f.stat().st_mtime, reverse=True)
+            if candidates:
+                final = candidates[0]
 
-        if not final.exists():
+        if not final or not final.exists():
             self.finished.emit(self.tag, False, "Output file not found.")
             return
 

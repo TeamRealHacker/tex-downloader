@@ -48,8 +48,14 @@ def ensure_save_dir() -> None:
     cfg = config.load()
     p = Path(cfg["save_dir"])
     p.mkdir(parents=True, exist_ok=True)
-    (p / "Video").mkdir(parents=True, exist_ok=True)
-    (p / "Audio").mkdir(parents=True, exist_ok=True)
+    subdirs = cfg.get("subdirs")
+    if isinstance(subdirs, dict):
+        video_sub = subdirs.get("video", "Video")
+        audio_sub = subdirs.get("audio", "Audio")
+    else:
+        video_sub, audio_sub = "Video", "Audio"
+    (p / video_sub).mkdir(parents=True, exist_ok=True)
+    (p / audio_sub).mkdir(parents=True, exist_ok=True)
 
 
 def first_run_pick_save_dir() -> None:
