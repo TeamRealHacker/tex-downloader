@@ -1,4 +1,4 @@
-"""URL detection: youtube (single/playlist), tiktok, instagram, generic."""
+"""URL detection: youtube (single/playlist), tiktok, instagram, twitter, generic."""
 from __future__ import annotations
 
 import re
@@ -14,6 +14,9 @@ _IG_DOMAINS = ("instagram.com", "instagr.am")
 _TW_DOMAINS = ("twitter.com", "x.com", "t.co")
 
 _URL_RE = re.compile(r"https?://[^\s<>\"']+")
+
+# Platforms whose user/profile pages act as playlists (multi-item).
+_MULTI_ITEM_DOMAINS = _TT_DOMAINS + _IG_DOMAINS + _TW_DOMAINS
 
 
 def extract_urls(text: str) -> list[str]:
@@ -43,6 +46,44 @@ def detect(url: str) -> Platform:
     if any(d in host for d in _TW_DOMAINS):
         return "twitter"
     return "generic"
+
+
+def is_multi_item_url(url: str) -> bool:
+    """Return True if the URL looks like a user/profile/playlist page
+    (not an individual post/video) for any supported platform."""
+    u = url.lower().strip()
+    host = _host(u)
+    # YouTube playlist (handled by detect already)
+    if "list=" in u:
+        return True
+    # YouTube channel URLs: /@handle, /channel/UC..., /c/name, /user/name
+    if any(d in host for d in _YT_DOMAINS):
+        path = re.sub(r"https?://[^/]+", "", u)
+        if re.match(r"^(/@|/channel/|/c/|/user/)", path):
+            return True
+    # TikTok user pages: tiktok.com/@username (no /video/)
+    if any(d in host for d in _TT_DOMAINS):
+        path = re.sub(r"https?://[^/]+", "", u)
+        if re.match(r"^/@[^/]+$", path):
+            return True
+    # Instagram profile pages: instagram.com/username/ (no /p/ or /reel/)
+    if any(d in host for d in _IG_DOMAINS):
+        path = re.sub(r"https?://[^/]+", "", u)
+        if re.match(r"^/[^/]+/?$", path) and "/p/" not in path and "/reel/" not in path:
+            return True
+    # Twitter user timelines: x.com/username (no /status/)
+    if any(d in host for d in _TW_DOMAINS):
+        path = re.sub(r"https?://[^/]+", "", u)
+        if re.match(r"^/[^/]+/?$", path) and "/status/" not in path:
+            return True
+    return False
+
+
+def is_yt_url(url: str) -> bool:
+    """Check if the URL belongs to YouTube."""
+    u = url.lower()
+    host = _host(u)
+    return any(d in host for d in _YT_DOMAINS)
 
 
 def _host(url: str) -> str:

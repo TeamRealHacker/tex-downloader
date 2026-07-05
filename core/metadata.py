@@ -15,6 +15,8 @@ from . import config
 from .detector import (
     Platform,
     detect,
+    is_multi_item_url,
+    is_yt_url,
     youtube_playlist_id,
     youtube_video_id,
 )
@@ -113,6 +115,9 @@ def _common_opts(no_cookies: bool = False) -> dict[str, Any]:
 def _compute_format_sizes(info: dict[str, Any]) -> dict[str, int]:
     """Given a yt-dlp info dict, return quality_key -> bytes for every option
     in MP4_QUALITIES + MP3_QUALITIES. Replaces the 9-worker _SizeWorker probe.
+
+    Handles non-YouTube platforms that may use different field names or
+    lack a 'height' field by also checking 'resolution' and 'width'.
     """
     # Import here to avoid a cycle (formats.py is tiny but pure data)
     from .formats import MP3_QUALITIES, MP4_QUALITIES
@@ -130,11 +135,28 @@ def _compute_format_sizes(info: dict[str, Any]) -> dict[str, int]:
         best_audio_size = 0
     for opt in MP4_QUALITIES:
         h = int(opt.key.replace("p", ""))
-        cand = [
-            x for x in fmts
-            if 0 < (x.get("height") or 0) <= h
-            and x.get("vcodec") not in (None, "none")
-        ]
+        cand = []
+        for x in fmts:
+            if x.get("vcodec") in (None, "none"):
+                continue
+            # Try multiple ways to get video height — some platforms use
+            # 'resolution' string (e.g. "1080x1920") or only provide 'width'.
+            fh = x.get("height")
+            if not fh:
+                res = x.get("resolution") or ""
+                if "x" in res:
+                    try:
+                        parts = res.lower().split("x")
+                        fh = int(parts[1].strip())  # height is after 'x'
+                    except (ValueError, IndexError):
+                        pass
+            if not fh:
+                w = x.get("width")
+                if w:
+                    # Assume 16:9 if only width is known
+                    fh = int(w * 9 / 16)
+            if fh and 0 < fh <= h:
+                cand.append(x)
         if not cand:
             continue
         cand.sort(key=lambda x: ((x.get("height") or 0), (x.get("tbr") or 0)))
@@ -234,14 +256,19 @@ def fetch(url: str, no_cookies: bool = False) -> FetchResult:
 
     # Playlist detection: use flat extraction so a 200-item playlist comes back
     # in one round-trip instead of N+1.
+    # Support multi-platform: TikTok user pages, Instagram profiles, Twitter
+    # timelines, and YouTube playlists / channel URLs.
     is_playlist = (
         platform == "youtube_playlist"
         or ("list=" in url and "v=" not in url)
+        or is_multi_item_url(url)
     )
     if is_playlist:
         opts["extract_flat"] = True
-        # Bound memory + UI cost for very large playlists.
-        opts["playlist_items"] = "1-200"
+        # For multi-platform playlists, don't limit to YouTube-only extraction.
+        if platform not in ("tiktok", "instagram"):
+            # Bound memory + UI cost for very large playlists.
+            opts["playlist_items"] = "1-200"
 
     with yt_dlp.YoutubeDL(opts) as ydl:
         try:
@@ -282,12 +309,14 @@ def _entry_url(entry: dict[str, Any], fallback: str) -> str:
     u = entry.get("webpage_url") or entry.get("url") or ""
     if u.startswith("http://") or u.startswith("https://"):
         return u
-    # Only construct a YouTube watch URL if the entry is actually from YouTube.
+    # Only construct a YouTube watch URL if the fallback is actually from YouTube.
     eid = entry.get("id")
-    eurl_lower = (u or "").lower()
-    is_yt = "youtube.com" in eurl_lower or "youtu.be" in eurl_lower
+    fallback_lower = (fallback or "").lower()
+    is_yt = "youtube.com" in fallback_lower or "youtu.be" in fallback_lower
     if eid and len(eid) >= 6 and is_yt:
         return f"https://www.youtube.com/watch?v={eid}"
+    # For non-YouTube platforms, return the fallback URL rather than building
+    # an invalid YouTube URL from a platform-specific ID.
     return fallback
 
 

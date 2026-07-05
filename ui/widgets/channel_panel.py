@@ -49,16 +49,22 @@ def _entry_thumb_url(entry: dict) -> str:
     """Best-effort thumbnail URL for a flat entry — YouTube or generic."""
     eid = entry.get("id") or ""
     eurl = (entry.get("url") or entry.get("webpage_url") or "").lower()
-    if "youtube.com" in eurl or "youtu.be" in eurl:
-        if eid:
-            return _YT_THUMB.format(id=eid)
+    is_yt = "youtube.com" in eurl or "youtu.be" in eurl
+    # Only use YouTube thumbnail URL format for YouTube entries
+    if is_yt and eid:
+        return _YT_THUMB.format(id=eid)
+    # For all platforms, try yt-dlp's thumbnails first
     thumbs = entry.get("thumbnails") or []
     for t in thumbs:
         u = (t.get("url") or "").strip()
         if u and "googleusercontent" not in u:
             return u
-    if eid:
-        return _YT_THUMB.format(id=eid)
+    # Fallback to any remaining thumbnail (even if googleusercontent)
+    if thumbs:
+        for t in thumbs:
+            u = (t.get("url") or "").strip()
+            if u:
+                return u
     return ""
 
 

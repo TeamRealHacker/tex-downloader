@@ -255,7 +255,7 @@ class TexWindow(QMainWindow):
         # Clipboard
         from core.clipboard import ClipboardWatcher
         self.clip_watcher = ClipboardWatcher(interval_ms=1500, parent=self)
-        self.clip_watcher.url_detected.connect(self._on_url_from_clipboard)
+        self.clip_watcher.urls_detected.connect(self._on_urls_from_clipboard)
         if config.get("watch_clipboard", True):
             self.clip_watcher.start()
 
@@ -735,10 +735,16 @@ class TexWindow(QMainWindow):
         self._fetch_worker.start()
 
     def _enqueue_bulk(self, urls: list) -> None:
-        """Enqueue a batch of URLs at once — no metadata preview."""
+        """Enqueue a batch of URLs at once — no metadata preview.
+        
+        yt-dlp will extract the real title/metadata during the download
+        itself, so we pass placeholder values here. The downloader uses
+        yt-dlp's outtmpl with 'title' field, which gets populated at
+        download time.
+        """
         if not urls:
             return
-        # Use the user's currently selected quality; fall back to 720p.
+        # Use the user's currently selected quality; fall back to 1080p.
         q = self.format_picker.selected_option() or MP4_QUALITIES[2]
         out_dir = config.ensure_save_subdir("audio" if q.kind == "audio" else "video")
         tpl = config.get("filename_template", "{title} [{quality}].{ext}")
@@ -785,13 +791,18 @@ class TexWindow(QMainWindow):
             self._apply_format_sizes(v.format_sizes)
         elif result.kind == "playlist" and result.playlist:
             p = result.playlist
-            try:
-                pp = playlist.parse(self.url_bar.text())
-                pre = playlist.precheck_ids(p.entries, pp.current_video_id)
-                pre_check_id = pp.current_video_id
-            except Exception:
-                pre = set()
-                pre_check_id = None
+            # Only use YouTube-specific precheck for YouTube URLs
+            pre = set()
+            pre_check_id = None
+            from core.detector import detect as _detect
+            if _detect(self.url_bar.text()) in ("youtube", "youtube_playlist"):
+                try:
+                    pp = playlist.parse(self.url_bar.text())
+                    pre = playlist.precheck_ids(p.entries, pp.current_video_id)
+                    pre_check_id = pp.current_video_id
+                except Exception:
+                    pre = set()
+                    pre_check_id = None
             self.playlist_panel.set_playlist(p.title, p.uploader, p.entries, pre)
             msg = f"Ready \u00B7 {p.title[:40] or 'Playlist'}"
             if pre_check_id:
@@ -929,17 +940,23 @@ class TexWindow(QMainWindow):
         for it in self.queue.all_items():
             if it.item_id == item_id:
                 if ok:
-                    card.set_path(result)
-                    card.set_status("done")
+                    if card:
+                        card.set_path(result)
+                        card.set_status("done")
                     self._show_toast(f"Done \u00B7 {it.req.title[:50]}")
                     self.sound.play("done")
                     self._done_count += 1
                     if it.req.audio_only:
                         try:
                             from core import tags as _tags
+                            # Use playlist/channel title as album when available
+                            album = "Tex downloads"
+                            if self._current_result and self._current_result.kind == "playlist":
+                                album = (self._current_result.playlist.title
+                                         if self._current_result.playlist else album)
                             _tags.tag_mp3(
                                 Path(result), title=it.req.title,
-                                artist=it.req.uploader, album="Tex downloads",
+                                artist=it.req.uploader, album=album,
                             )
                         except Exception:
                             pass
@@ -955,13 +972,14 @@ class TexWindow(QMainWindow):
                     except Exception:
                         pass
                 else:
-                    if "Cancel" in result:
-                        card.set_status("cancelled")
-                    else:
-                        card.set_status("error")
-                        card.file_lbl.setText(f"Error \u00B7 {result}")
-                        self._show_toast(f"Error \u00B7 {result[:60]}", 4000)
-                        self.sound.play("error")
+                    if card:
+                        if "Cancel" in result:
+                            card.set_status("cancelled")
+                        else:
+                            card.set_status("error")
+                            card.file_lbl.setText(f"Error \u00B7 {result}")
+                    self._show_toast(f"Error \u00B7 {result[:60]}", 4000)
+                    self.sound.play("error")
                 break
         active = self.queue.active_count()
         self.queue_bar.update_active(active, self.queue.slots())
@@ -990,7 +1008,10 @@ class TexWindow(QMainWindow):
             if hasattr(self, "queue_empty") and self.queue_empty is not None:
                 self.queue_empty.setVisible(True)
                 self._position_queue_empty()
-        self.sidebar.set_badge("queue", 0)
+        self.sidebar.set_badge("queue", sum(
+            1 for it in self.queue.all_items()
+            if it.status in ("active", "paused", "pending")
+        ))
         self._show_toast("Cleared")
 
     # ---------- Channel tab ----------
@@ -1127,11 +1148,21 @@ class TexWindow(QMainWindow):
                 self._on_fetch(" \n".join(urls))
 
     # ---------- Clipboard ----------
-    def _on_url_from_clipboard(self, url: str) -> None:
-        if self.isActiveWindow():
-            self._show_toast(f"URL detected \u00B7 {url[:40]}")
-            self.sound.play("tick")
-            self.url_bar.set_text(url)
+    def _on_urls_from_clipboard(self, urls: list) -> None:
+        if not urls:
+            return
+        if len(urls) == 1:
+            url = urls[0]
+            if self.isActiveWindow():
+                self._show_toast(f"URL detected \u00B7 {url[:40]}")
+                self.sound.play("tick")
+                self.url_bar.set_text(url)
+        else:
+            # Multiple URLs detected — auto-enqueue them all
+            if self.isActiveWindow():
+                self._show_toast(f"URLs detected \u00B7 {len(urls)} items")
+                self.sound.play("tick")
+            self._enqueue_bulk(urls)
 
     # ---------- Tray / close ----------
     def closeEvent(self, e) -> None:

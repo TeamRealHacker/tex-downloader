@@ -158,14 +158,13 @@ _BROWSER_COOKIE_HINTS = (
     "failed to decrypt with dpapi",
     "failed to decrypt",
     "could not find a suitable keyring",
-    "keyring",
     "could not find a profile",
     "failed to load cookies",
     "cookie database is locked",
     "cookiesfrombrowser",
     "decryption failed",
     "win32crypt",
-    "cookie",
+    "cookie extraction failed",
     "no saved credentials",
 )
 

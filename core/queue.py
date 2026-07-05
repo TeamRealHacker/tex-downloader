@@ -134,7 +134,7 @@ class DownloadQueue(QObject):
         self._emit_slots()
 
     def enqueue(self, req: DownloadRequest) -> str:
-        item_id = uuid.uuid4().hex[:8]
+        item_id = uuid.uuid4().hex[:12]
         it = QueueItem(item_id=item_id, req=req)
         self._items[item_id] = it
         self._order.append(item_id)
@@ -146,7 +146,7 @@ class DownloadQueue(QObject):
         """Batch enqueue — single pump() after all items are added."""
         ids: list[str] = []
         for req in reqs:
-            item_id = uuid.uuid4().hex[:8]
+            item_id = uuid.uuid4().hex[:12]
             it = QueueItem(item_id=item_id, req=req)
             self._items[item_id] = it
             self._order.append(item_id)

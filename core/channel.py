@@ -13,7 +13,7 @@ import yt_dlp
 from yt_dlp.utils import DownloadError
 
 from . import config
-from .detector import Platform, detect
+from .detector import Platform, detect, is_yt_url
 from .metadata import _friendly_err, ffmpeg_location
 
 
@@ -55,8 +55,9 @@ def _to_video_entry(e: dict[str, Any], fallback_url: str) -> dict:
     eid = e.get("id", "")
     eurl = e.get("webpage_url") or e.get("url") or ""
     if not eurl.startswith("http"):
-        # YouTube flat entries often have a bare id — build the watch URL.
-        if eid:
+        # Only build YouTube watch URLs for YouTube entries.
+        # Non-YouTube IDs cannot be turned into valid YouTube URLs.
+        if eid and is_yt_url(fallback_url):
             eurl = f"https://www.youtube.com/watch?v={eid}"
         else:
             eurl = fallback_url
@@ -65,7 +66,7 @@ def _to_video_entry(e: dict[str, Any], fallback_url: str) -> dict:
     # ``i.ytimg.com/vi/<id>/hqdefault.jpg`` as a guaranteed fallback.
     thumb = ""
     thumbs = e.get("thumbnails") or []
-    is_yt = "youtube.com" in eurl or "youtu.be" in eurl
+    is_yt = is_yt_url(eurl)
     for t in thumbs:
         u = (t.get("url") or "").strip()
         if not u:
@@ -90,12 +91,26 @@ def _to_video_entry(e: dict[str, Any], fallback_url: str) -> dict:
     }
 
 
-def _filter_short(entry: dict, want: str) -> bool:
-    """True if the entry should be kept given the user's filter."""
+def _filter_short(entry: dict, want: str, platform: str = "") -> bool:
+    """True if the entry should be kept given the user's filter.
+
+    Handles platform-specific short-form URL patterns:
+    - YouTube: /shorts/
+    - TikTok: all videos are short-form (treat as shorts)
+    - Instagram: /reel/ is the short-form equivalent
+    """
     if want == "all":
         return True
     eurl = (entry.get("url") or entry.get("webpage_url") or "").lower()
-    is_short = "/shorts/" in eurl
+    # Detect short-form content across platforms
+    is_short = (
+        "/shorts/" in eurl          # YouTube Shorts
+        or "/reel/" in eurl          # Instagram Reels
+        or (platform == "tiktok" and "/video/" in eurl)  # TikTok videos are all short-form
+    )
+    # TikTok user pages: all entries are short-form by nature
+    if platform == "tiktok" and not any(p in eurl for p in ("/video/", "/shorts/")):
+        is_short = True  # profile-level entries are short-form
     if want == "shorts":
         return is_short
     if want == "videos":
@@ -165,7 +180,7 @@ def fetch_channel(url: str, content_type: str = "videos",
         if not e:
             continue
         norm = _to_video_entry(e, target_url)
-        if not _filter_short(norm, content_type):
+        if not _filter_short(norm, content_type, platform=platform):
             continue
         entries.append(norm)
         if len(entries) >= max_count:
