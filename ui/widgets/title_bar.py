@@ -227,10 +227,6 @@ class TitleBar(QFrame):
         lay.setSpacing(0)
 
         # Drag region + brand
-        self._brand_dot = QLabel("\u2022")
-        self._brand_dot.setObjectName("TitleBrandDot")
-        lay.addWidget(self._brand_dot, 0, Qt.AlignmentFlag.AlignVCenter)
-
         self._title = QLabel("Tex")
         self._title.setObjectName("TitleBrand")
         lay.addSpacing(6)
@@ -366,12 +362,12 @@ class TitleBar(QFrame):
             w.style().polish(w)
 
         if state in ("downloading", "fetching"):
-            eff = self._brand_dot.graphicsEffect()
+            eff = self._title.graphicsEffect()
             if not isinstance(eff, QGraphicsColorizeEffect):
-                eff = QGraphicsColorizeEffect(self._brand_dot)
-                self._brand_dot.setGraphicsEffect(eff)
+                eff = QGraphicsColorizeEffect(self._title)
+                self._title.setGraphicsEffect(eff)
             eff.setColor(QColor("#FFFFFF"))
-            a = QPropertyAnimation(eff, b"strength", self._brand_dot)
+            a = QPropertyAnimation(eff, b"strength", self._title)
             a.setDuration(1100)
             a.setStartValue(0.0)
             a.setKeyValueAt(0.5, 0.6)
@@ -379,4 +375,4 @@ class TitleBar(QFrame):
             a.setLoopCount(-1)
             a.start()
         else:
-            self._brand_dot.setGraphicsEffect(None)
+            self._title.setGraphicsEffect(None)

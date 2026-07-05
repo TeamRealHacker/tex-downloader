@@ -64,6 +64,13 @@ def invalidate() -> None:
     """Drop the in-memory cache. Next ``load()`` re-reads the file."""
     global _CACHE
     _CACHE = None
+    metadata_cache_clear()
+
+
+def metadata_cache_clear() -> None:
+    """Also clear the metadata fetch cache (auth changes invalidate results)."""
+    from .metadata import clear_cache
+    clear_cache()
 
 
 def save(cfg: dict[str, Any]) -> None:

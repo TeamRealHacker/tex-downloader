@@ -186,7 +186,8 @@ class SoundManager:
         if eff is None:
             return
         try:
-            eff.stop()
+            if eff.isPlaying():
+                eff.stop()
             eff.play()
         except Exception:
             pass

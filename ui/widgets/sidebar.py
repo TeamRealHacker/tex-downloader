@@ -6,7 +6,7 @@ All icons are hand-rolled SVGs (see ``ui.icons``) — no emoji, no glyphs.
 """
 from __future__ import annotations
 
-from PySide6.QtCore import QPropertyAnimation, QSize, Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QColor, QPalette
 from PySide6.QtWidgets import (
     QButtonGroup, QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget,
@@ -245,13 +245,9 @@ class Sidebar(QFrame):
 
     def set_collapsed(self, collapsed: bool) -> None:
         self._collapsed = collapsed
-        # Animate width
         target = 60 if collapsed else 168
-        anim = QPropertyAnimation(self, b"minimumWidth", self)
-        anim.setDuration(160)
-        anim.setStartValue(self.width())
-        anim.setEndValue(target)
-        anim.start()
+        # Set fixed width immediately — skip QPropertyAnimation because it
+        # fights with setFixedWidth and causes visual flicker.
         self.setFixedWidth(target)
         # Update children
         self._brand_lbl.setVisible(not collapsed)

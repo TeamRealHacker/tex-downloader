@@ -125,6 +125,7 @@ class SettingsPanel(QFrame):
         self.setMinimumWidth(520)
         # Inside a QScrollArea; let it grow vertically to its natural size
         self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Preferred)
+        self._dirty = False
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(28, 24, 28, 24)
@@ -357,6 +358,7 @@ class SettingsPanel(QFrame):
         self._on_change()
 
     def _emit_changed(self) -> None:
+        self._dirty = True
         self.changed.emit()
 
     def set_save_dir(self, path: str) -> None:

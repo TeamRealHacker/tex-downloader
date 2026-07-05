@@ -84,7 +84,7 @@ class _Item(QFrame):
             return
         try:
             if sys.platform.startswith("win"):
-                subprocess.Popen(["explorer", "/select,", str(p)])
+                subprocess.Popen(["explorer", "/select," + str(p)])
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", "-R", str(p)])
             else:

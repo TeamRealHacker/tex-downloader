@@ -16,15 +16,6 @@ class QualityOption:
 VIDEO_RUNG_HEIGHT = 2160
 
 
-def _video(height: int) -> str:
-    # Prefer mp4 + m4a single-file delivery; fall back to best muxed.
-    return (
-        f"bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]"
-        f"/best[height<={height}][ext=mp4]"
-        f"/bestvideo[height<={height}]+bestaudio/best[height<={height}]"
-    )
-
-
 def _video_prefer_mp4(height: int) -> str:
     # Even if muxer not available, ask for mp4.
     return (

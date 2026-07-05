@@ -215,6 +215,11 @@ class ProgressCard(QFrame):
         self._bar_current += diff * 0.12
         self.bar.set_fill(self._bar_current)
 
+    def cleanup(self) -> None:
+        """Stop the animation timer before deletion to prevent use-after-free."""
+        if self._bar_timer.isActive():
+            self._bar_timer.stop()
+
 
 class _OpenButton(QFrame):
     """A small 'OPEN' primary action button with an SVG arrow icon."""

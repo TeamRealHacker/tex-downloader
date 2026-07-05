@@ -32,13 +32,13 @@ class ActiveDownloadHero(QFrame):
         self.state_lbl.setObjectName("CardAccentText")
         col.addWidget(self.state_lbl)
         self.title_lbl = QLabel("\u2014")
-        self.title_lbl.setStyleSheet("color:#000; font-size:18px; font-weight:700;")
+        self.title_lbl.setObjectName("CardAccentText")
         col.addWidget(self.title_lbl)
         top.addLayout(col, 1)
 
         # Right: percent
         self.pct_lbl = QLabel("0.0%")
-        self.pct_lbl.setStyleSheet("color:#000; font-size:32px; font-weight:700;")
+        self.pct_lbl.setObjectName("CardAccentText")
         self.pct_lbl.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         top.addWidget(self.pct_lbl)
 
@@ -46,7 +46,7 @@ class ActiveDownloadHero(QFrame):
 
         # Meta row
         self.meta_lbl = QLabel("\u2014")
-        self.meta_lbl.setStyleSheet("color:#000; font-size:10px; font-weight:700; letter-spacing:2px;")
+        self.meta_lbl.setObjectName("Meta")
         outer.addWidget(self.meta_lbl)
 
         self.setVisible(False)
