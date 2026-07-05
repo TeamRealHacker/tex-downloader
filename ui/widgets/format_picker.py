@@ -138,7 +138,13 @@ class FormatPicker(QFrame):
 
     def _emit(self, opt: QualityOption) -> None:
         for key, chip in self._chips.items():
-            chip.set_selected(chip.opt.key == opt.key)
+            selected = chip.opt.key == opt.key
+            chip.set_selected(selected)
+            # Keep QButtonGroup in sync so checkable button state is consistent
+            if selected:
+                self._group.blockSignals(True)
+                chip._btn.setChecked(True)
+                self._group.blockSignals(False)
         self._selected_key = opt.key
         self.selected.emit(opt)
 

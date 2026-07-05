@@ -260,10 +260,10 @@ class TexWindow(QMainWindow):
             self.clip_watcher.start()
 
         # Theme + initial state
-        self.queue.set_max_slots(int(config.get("concurrency", 5)))
+        self.queue.set_max_slots(int(config.get("concurrency", 0)))
         self.titlebar.set_state("ready")
         self.page_settings.refresh_about()
-        self.page_settings.set_queue_info(0, int(config.get("concurrency", 5)))
+        self.page_settings.set_queue_info(0, int(config.get("concurrency", 0)))
         # Dot background: dark theme only.
         self._dot_bg.setVisible(True)
 
@@ -574,13 +574,7 @@ class TexWindow(QMainWindow):
         v.addWidget(self.scroll, 1)
         return page
 
-    def _toggle_side_panel(self) -> None:
-        if self._bento_right.isVisible():
-            self._bento_right.setVisible(False)
-            self.btn_toggle_side.setText("Show  \u00AB")
-        else:
-            self._bento_right.setVisible(True)
-            self.btn_toggle_side.setText("Hide  \u00BB")
+
 
     def _build_queue_page(self) -> QWidget:
         page = QWidget()
@@ -791,11 +785,16 @@ class TexWindow(QMainWindow):
             self._apply_format_sizes(v.format_sizes)
         elif result.kind == "playlist" and result.playlist:
             p = result.playlist
-            pp = playlist.parse(self.url_bar.text())
-            pre = playlist.precheck_ids(p.entries, pp.current_video_id)
+            try:
+                pp = playlist.parse(self.url_bar.text())
+                pre = playlist.precheck_ids(p.entries, pp.current_video_id)
+                pre_check_id = pp.current_video_id
+            except Exception:
+                pre = set()
+                pre_check_id = None
             self.playlist_panel.set_playlist(p.title, p.uploader, p.entries, pre)
             msg = f"Ready \u00B7 {p.title[:40] or 'Playlist'}"
-            if pp.current_video_id:
+            if pre_check_id:
                 msg += " \u00B7 current pre-checked"
             self._show_toast(msg)
 
@@ -896,9 +895,7 @@ class TexWindow(QMainWindow):
                 card = ProgressCard(theme=self._theme_palette)
                 # Title only — quality already encoded in the filename prefix.
                 card.set_title(it.req.title)
-                self.progress_stack.layout().insertWidget(0, card)
                 self.queue_progress.layout().insertWidget(0, card)
-                self.progress_stack.setVisible(True)
                 self.queue_progress.setVisible(True)
                 # Hide the empty state overlay now that we have real cards.
                 if hasattr(self, "queue_empty") and self.queue_empty is not None:
@@ -986,9 +983,9 @@ class TexWindow(QMainWindow):
         for iid in list(self._per_video_progress.keys()):
             if iid not in keep_ids:
                 card = self._per_video_progress.pop(iid)
+                card.cleanup()
                 card.deleteLater()
         if not self._per_video_progress:
-            self.progress_stack.setVisible(False)
             self.queue_progress.setVisible(False)
             if hasattr(self, "queue_empty") and self.queue_empty is not None:
                 self.queue_empty.setVisible(True)
@@ -1066,7 +1063,7 @@ class TexWindow(QMainWindow):
                 if p.is_dir():
                     os.startfile(p)
                 else:
-                    subprocess.Popen(["explorer", "/select,", str(p)])
+                    subprocess.Popen(["explorer", "/select," + str(p)])
             elif sys.platform == "darwin":
                 subprocess.Popen(["open", "-R", str(p)])
             else:
@@ -1089,11 +1086,13 @@ class TexWindow(QMainWindow):
             # Refresh icons on every themed widget — the SVG icon code
             # reads its color from the palette dict, not from QSS.
             self._propagate_theme()
-        self.queue.set_max_slots(int(config.get("concurrency", 5)))
+        self.queue.set_max_slots(int(config.get("concurrency", 0)))
         self.clip_watcher.set_enabled(bool(config.get("watch_clipboard", True)))
-        self.queue_bar.set_slots(int(config.get("concurrency", 5)))
+        self.queue_bar.set_slots(int(config.get("concurrency", 0)))
         self.sound.set_enabled(bool(config.get("sounds_enabled", True)))
-        self._show_toast("Saved")
+        if self.page_settings._dirty:
+            self._show_toast("Saved")
+            self.page_settings._dirty = False
 
     def _pick_save_dir(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Choose save folder", config.get("save_dir"))
@@ -1120,7 +1119,12 @@ class TexWindow(QMainWindow):
     def dropEvent(self, e: QDropEvent) -> None:
         urls = extract_urls(e.mimeData().text())
         if urls:
-            self.url_bar.set_text(urls[0])
+            if len(urls) == 1:
+                self.url_bar.set_text(urls[0])
+            else:
+                # Multi-URL drop — join and let _on_fetch handle bulk enqueue
+                self.url_bar.set_text(" \n".join(urls))
+                self._on_fetch(" \n".join(urls))
 
     # ---------- Clipboard ----------
     def _on_url_from_clipboard(self, url: str) -> None:

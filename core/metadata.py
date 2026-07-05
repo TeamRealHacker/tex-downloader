@@ -142,7 +142,7 @@ def _compute_format_sizes(info: dict[str, Any]) -> dict[str, int]:
         v_size = v.get("filesize") or v.get("filesize_approx") or 0
         # We mux video+audio on download, so the total ≈ sum (with some overhead)
         if v_size:
-            out[opt.key] = int(v_size + best_audio_size) if best_audio_size else int(v_size)
+            out[opt.key] = min(int(v_size) + int(best_audio_size), 2_147_483_647) if best_audio_size else int(v_size)
     for opt in MP3_QUALITIES:
         if not audios:
             continue
@@ -202,6 +202,11 @@ def _cache_put(url: str, no_cookies: bool, result: FetchResult) -> None:
         oldest = min(_FETCH_CACHE, key=lambda k: _FETCH_CACHE[k][0])
         _FETCH_CACHE.pop(oldest, None)
     _FETCH_CACHE[(url, no_cookies)] = (time.monotonic(), result)
+
+
+def clear_cache() -> None:
+    """Clear the entire fetch cache. Called when auth settings change."""
+    _FETCH_CACHE.clear()
 
 
 def fetch(url: str, no_cookies: bool = False) -> FetchResult:
@@ -302,7 +307,7 @@ def safe_filename(name: str, max_len: int = 120) -> str:
 # --- Friendly error mapping ---
 def _friendly_err(msg: str) -> str:
     m = msg.lower()
-    if "private video" in m or "private video" in m.replace("  ", " "):
+    if "private video" in m:
         return "This video is private."
     if "sign in" in m or "confirm your age" in m or "age-restricted" in m:
         return "Age-restricted. Try a different browser in Settings, or close the locked one."

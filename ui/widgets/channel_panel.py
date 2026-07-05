@@ -116,6 +116,15 @@ class _ThumbQueue(QObject):
         self._current_vid: str = ""
         self._active = False
 
+    def reset(self) -> None:
+        """Cancel in-flight and clear all pending thumbnail requests."""
+        self._pending.clear()
+        if self._active and hasattr(self, '_loader') and self._loader:
+            self._loader.requestInterruption()
+        self._active = False
+        self._current_vid = ""
+        self._current_row = None
+
     def request(self, vid_id: str, url: str, row: "_ChannelRow") -> None:
         # Dedupe — if a request for this vid_id is already pending or
         # in-flight, don't queue a second one.
@@ -508,6 +517,8 @@ class ChannelPanel(QFrame):
 
     def _clear_rows(self) -> None:
         self._pending_entries.clear()
+        # Cancel any in-flight thumbnail loads
+        _thumb_queue().reset()
         for r in self._rows:
             r.setParent(None)
             r.deleteLater()
