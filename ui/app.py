@@ -891,30 +891,33 @@ class TexWindow(QMainWindow):
         self._set_state("downloading" if active else "idle")
 
     def _on_started(self, item_id: str) -> None:
-        for it in self.queue.all_items():
-            if it.item_id == item_id:
-                card = ProgressCard(theme=self._theme_palette)
-                # Title only — quality already encoded in the filename prefix.
-                card.set_title(it.req.title)
-                self.progress_stack.layout().insertWidget(0, card)
-                self.queue_progress.layout().insertWidget(0, card)
-                self.progress_stack.setVisible(True)
-                self.queue_progress.setVisible(True)
-                # Hide the empty state overlay now that we have real cards.
-                if hasattr(self, "queue_empty") and self.queue_empty is not None:
-                    self.queue_empty.setVisible(False)
-                self._per_video_progress[item_id] = card
-                card.cancel.connect(lambda iid=item_id: self.queue.cancel(iid))
-                card.pause_toggle.connect(lambda iid=item_id: self.queue.toggle_pause(iid))
-                card.open_folder.connect(self._open_path)
-                anim.slide_up_in(card, distance=6, duration_ms=200)
-                break
-        self.queue_bar.update_active(self.queue.active_count(), self.queue.slots())
-        self._set_state("downloading")
-        # Scroll the new card into view if the queue is already tall.
-        sb = self.queue_scroll.verticalScrollBar()
-        if sb is not None and sb.maximum() > 0:
-            sb.setValue(0)  # newest card is at the top — show it
+        try:
+            for it in self.queue.all_items():
+                if it.item_id == item_id:
+                    card = ProgressCard(theme=self._theme_palette)
+                    # Title only — quality already encoded in the filename prefix.
+                    card.set_title(it.req.title)
+                    self.progress_stack.layout().insertWidget(0, card)
+                    self.queue_progress.layout().insertWidget(0, card)
+                    self.progress_stack.setVisible(True)
+                    self.queue_progress.setVisible(True)
+                    # Hide the empty state overlay now that we have real cards.
+                    if hasattr(self, "queue_empty") and self.queue_empty is not None:
+                        self.queue_empty.setVisible(False)
+                    self._per_video_progress[item_id] = card
+                    card.cancel.connect(lambda iid=item_id: self.queue.cancel(iid))
+                    card.pause_toggle.connect(lambda iid=item_id: self.queue.toggle_pause(iid))
+                    card.open_folder.connect(self._open_path)
+                    anim.slide_up_in(card, distance=6, duration_ms=200)
+                    break
+            self.queue_bar.update_active(self.queue.active_count(), self.queue.slots())
+            self._set_state("downloading")
+            # Scroll the new card into view if the queue is already tall.
+            sb = self.queue_scroll.verticalScrollBar()
+            if sb is not None and sb.maximum() > 0:
+                sb.setValue(0)  # newest card is at the top — show it
+        except Exception:
+            pass
 
     def _on_progress(self, item_id: str, pct: float, speed: float,
                      eta: float, downloaded: int, total: int) -> None:
