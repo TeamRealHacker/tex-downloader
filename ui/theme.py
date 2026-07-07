@@ -492,6 +492,15 @@ def _qss(mono: str, accent: str, accent_dim: str, fg: str, fg_dim: str, fg_faint
     QPushButton#Chip:disabled {{
         color: {fg_faint}; border-color: {hairline};
     }}
+    QPushButton#ChipBtn {{
+        background: {soft}; color: {fg_dim}; border: 1px solid {hairline};
+        border-radius: 6px; padding: 6px 12px; {_font_mono(mono, 10, QFont.Weight.Normal, 0)}
+    }}
+    QPushButton#ChipBtn:hover {{ border-color: {fg}; color: {fg}; }}
+    QPushButton#ChipBtn:pressed {{ background: {accent}; color: #FFFFFF; border-color: {accent}; }}
+    QPushButton#ChipBtn:checked {{
+        background: {accent}; color: #FFFFFF; border: 1px solid {accent};
+    }}
     QLabel#ChipSize {{
         {_font_mono(mono, 10, QFont.Weight.Bold, 0)} color: {fg_dim};
     }}

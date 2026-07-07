@@ -120,6 +120,7 @@ class Sidebar(QFrame):
     ICONS = {
         "download": "nav_download",
         "queue":    "nav_queue",
+        "editor":   "nav_editor",
         "channels": "nav_channels",
         "history":  "nav_history",
         "settings": "nav_settings",
@@ -182,6 +183,7 @@ class Sidebar(QFrame):
         nav_defs = [
             ("Download", "download"),
             ("Queue",    "queue"),
+            ("Editor",   "editor"),
             ("Channels", "channels"),
             ("History",  "history"),
             ("Settings", "settings"),

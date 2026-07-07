@@ -37,6 +37,8 @@ class DownloadRequest:
     audio_only: bool
     cookies_file: str = ""
     no_cookies: bool = False  # skips cookies entirely; set after a browser-cookie failure
+    trim_start: float = 0.0  # --download-sections start (seconds)
+    trim_end: float = 0.0    # --download-sections end (seconds)
 
 
 class DownloaderWorker(QThread):
@@ -144,6 +146,17 @@ class DownloaderWorker(QThread):
                         opts["cookiesfrombrowser"] = (browser, None, None, None)
         if config.get("speed_limit_bps"):
             opts["ratelimit"] = _safe_int(config.get("speed_limit_bps"), 0)
+
+        # Trim support: use yt-dlp's --download-sections for segment downloads.
+        trim_start = getattr(req, 'trim_start', 0.0) or 0.0
+        trim_end = getattr(req, 'trim_end', 0.0) or 0.0
+        if trim_start > 0 or trim_end > 0:
+            opts["download_sections"] = True
+            opts["force_keyframes_at_cuts"] = True
+            section_start = f"{int(trim_start)//60:02d}:{int(trim_start)%60:02d}"
+            section_end = f"{int(trim_end)//60:02d}:{int(trim_end)%60:02d}"
+            opts["section_start"] = section_start
+            opts["section_end"] = section_end
 
         # Format / post-processors
         if quality.kind == "audio":

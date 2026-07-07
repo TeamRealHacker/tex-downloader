@@ -42,6 +42,7 @@ from ui.widgets.url_bar import UrlBar
 from ui.widgets.video_card import VideoCard
 from ui.widgets.dot_background import DotBackground
 from ui.widgets.channel_panel import ChannelPanel
+from ui.widgets.editor_panel import EditorPanel
 
 
 # ---------- Edge resize for frameless window ----------
@@ -327,16 +328,19 @@ class TexWindow(QMainWindow):
             self.queue.cancel_all()
 
     def shortcut_settings(self) -> None:
-        self._switch_tab(3)
+        self._switch_tab(5)
 
     def shortcut_history(self) -> None:
-        self._switch_tab(2)
+        self._switch_tab(4)
 
     def shortcut_queue(self) -> None:
         self._switch_tab(1)
 
     def shortcut_download(self) -> None:
         self._switch_tab(0)
+
+    def shortcut_editor(self) -> None:
+        self._switch_tab(2)
 
     # ---------- Build ----------
     def _build(self) -> None:
@@ -386,6 +390,10 @@ class TexWindow(QMainWindow):
         self.stack.addWidget(self.page_dl)
         self.page_queue = self._build_queue_page()
         self.stack.addWidget(self.page_queue)
+        # Editor page — trim video segments
+        self.page_editor = EditorPanel(theme=self._theme_palette)
+        self.page_editor.trim_requested.connect(self._on_trim_download)
+        self.stack.addWidget(self.page_editor)
         # Channels page — bulk download from YouTube/TikTok/Instagram channels
         self.page_channels = ChannelPanel(theme=self._theme_palette)
         self.page_channels.fetch_requested.connect(self._on_channel_fetch)
@@ -678,9 +686,9 @@ class TexWindow(QMainWindow):
         w = self.stack.currentWidget()
         if w is not None:
             w.resize(self.stack.size())
-        if idx == 2:
+        if idx == 4:
             self.page_history.refresh()
-        if idx == 3:
+        if idx == 5:
             self.page_settings.refresh_about()
 
     def _on_sidebar_collapse(self, _collapsed: bool) -> None:
@@ -1059,6 +1067,37 @@ class TexWindow(QMainWindow):
         self.sound.play("error")
         self._show_toast(f"Error  \u00B7  {err}", 4000)
 
+    # ---------- Editor trim download ----------
+    def _fmt_sec(self, s: float) -> str:
+        s = max(0.0, s)
+        m, sec = divmod(int(s), 60)
+        return f"{m}:{sec:02d}"
+
+    def _on_trim_download(self, url: str, start_sec: float, end_sec: float, quality) -> None:
+        """Download a trimmed section of a video using yt-dlp's --download-sections."""
+        from core.naming import render_path, unique_path
+        ext = "mp4"
+        out_dir = config.ensure_save_subdir("video")
+        tpl = config.get("filename_template", "{title} [{quality}].{ext}")
+        trim_label = f"{int(start_sec//60)}m{int(start_sec%60)}s-{int(end_sec//60)}m{int(end_sec%60)}s"
+        title = f"[Trim] {trim_label}"
+        target = render_path(
+            tpl, out_dir,
+            title=title, channel="",
+            quality=quality.key, vid_id="", ext=ext,
+        )
+        target = unique_path(target)
+        req = DownloadRequest(
+            url=url, title=title, uploader="", vid_id="",
+            quality_key=quality.key, out_dir=str(out_dir), template=tpl,
+            audio_only=False,
+            trim_start=start_sec, trim_end=end_sec,
+        )
+        self.queue.enqueue(req)
+        self.sound.play("queue")
+        self._show_toast(f"Queued \u00B7 Trim {self._fmt_sec(start_sec)} \u2192 {self._fmt_sec(end_sec)}")
+        self._switch_tab(1)
+
     def _on_channel_download(self, entries: list) -> None:
         """Enqueue every selected channel entry under a channel-named folder."""
         from core.channel import _channel_dir, ChannelInfo
@@ -1150,6 +1189,7 @@ class TexWindow(QMainWindow):
         self.titlebar.set_theme(p)
         self.sidebar.set_theme(p)
         self.page_channels.set_theme(p)
+        self.page_editor.set_theme(p)
         for card in self._per_video_progress.values():
             card.set_theme(p)
         self.open_save_btn.set_theme(p)

@@ -315,6 +315,16 @@ def safe_filename(name: str, max_len: int = 120) -> str:
 # --- Friendly error mapping ---
 def _friendly_err(msg: str) -> str:
     m = msg.lower()
+    # Platform-specific checks first (more specific → less specific).
+    if "login required" in m and ("tiktok" in m or "instagram" in m):
+        return "Login required. Paste cookies in Settings."
+    if "not found" in m and ("tweet" in m or "twitter" in m):
+        return "No video found in this tweet."
+    if "private" in m and ("tiktok" in m or "instagram" in m):
+        return "This content is private."
+    if "age" in m and "tiktok" in m:
+        return "Age-restricted content."
+    # Generic checks
     if "private video" in m:
         return "This video is private."
     if "sign in" in m or "confirm your age" in m or "age-restricted" in m:
@@ -329,12 +339,4 @@ def _friendly_err(msg: str) -> str:
         return "Could not parse this page. Site may not be supported."
     if "video unavailable" in m:
         return "Video unavailable."
-    if "login required" in m and ("tiktok" in m or "instagram" in m):
-        return "Login required. Paste cookies in Settings."
-    if "not found" in m and ("tweet" in m or "twitter" in m):
-        return "No video found in this tweet."
-    if "private" in m and ("tiktok" in m or "instagram" in m):
-        return "This content is private."
-    if "age" in m and "tiktok" in m:
-        return "Age-restricted content."
     return msg.splitlines()[0][:200]

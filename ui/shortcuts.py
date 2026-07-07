@@ -45,8 +45,12 @@ def install(window) -> None:
 
     sc_dl3 = QShortcut(QKeySequence("Ctrl+3"), window)
     sc_dl3.setContext(Qt.ShortcutContext.ApplicationShortcut)
-    sc_dl3.activated.connect(window.shortcut_history)
+    sc_dl3.activated.connect(window.shortcut_editor)
 
     sc_dl4 = QShortcut(QKeySequence("Ctrl+4"), window)
     sc_dl4.setContext(Qt.ShortcutContext.ApplicationShortcut)
-    sc_dl4.activated.connect(window.shortcut_settings)
+    sc_dl4.activated.connect(window.shortcut_history)
+
+    sc_dl5 = QShortcut(QKeySequence("Ctrl+5"), window)
+    sc_dl5.setContext(Qt.ShortcutContext.ApplicationShortcut)
+    sc_dl5.activated.connect(window.shortcut_settings)

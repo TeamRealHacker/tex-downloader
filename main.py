@@ -16,6 +16,18 @@ from ui.widgets.splash import Splash
 
 
 def make_app_icon() -> QIcon:
+    # Portable bundle: use the real icon from the exe directory.
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        ico = exe_dir / "icon.ico"
+        png = exe_dir / "icon.png"
+        if ico.exists():
+            return QIcon(str(ico))
+        if png.exists():
+            pm = QPixmap(str(png))
+            if not pm.isNull():
+                return QIcon(pm)
+    # Dev / fallback: code-generated icon.
     pm = QPixmap(256, 256)
     pm.fill(Qt.GlobalColor.transparent)
     p = QPainter(pm)
@@ -32,6 +44,15 @@ def make_app_icon() -> QIcon:
 
 
 def ensure_ffmpeg_first_run() -> None:
+    # Portable: look for ffmpeg next to the EXE first.
+    if getattr(sys, "frozen", False):
+        exe_dir = Path(sys.executable).resolve().parent
+        for name in ("ffmpeg.exe", "ffmpeg", "ffmpeg/bin/ffmpeg.exe"):
+            candidate = exe_dir / name
+            if candidate.exists():
+                import core.metadata as _meta
+                _meta._FFMPEG_LOCATION = str(candidate)
+                return
     ffm = ffmpeg_location()
     if ffm and Path(ffm).exists():
         return
@@ -63,15 +84,24 @@ def first_run_pick_save_dir() -> None:
     if cfg.get("save_dir") and Path(cfg["save_dir"]).exists():
         return
     from PySide6.QtWidgets import QFileDialog
+    # Portable: default to a "Downloads" folder next to the EXE.
+    if getattr(sys, "frozen", False):
+        default_dir = str(Path(sys.executable).resolve().parent / "Downloads")
+    else:
+        default_dir = str(Path.home() / "Downloads")
     path = QFileDialog.getExistingDirectory(
-        None, "Tex \u00B7 choose download folder",
-        str(Path.home() / "Downloads"),
+        None, "Tex \u00B7 choose download folder", default_dir,
     )
     if path:
         cfg["save_dir"] = path
         config.save(cfg)
     else:
-        cfg["save_dir"] = str(Path.home() / "Downloads" / "Tex")
+        # Portable fallback: Downloads next to EXE; installed fallback: ~/Downloads/Tex
+        if getattr(sys, "frozen", False):
+            fallback = str(Path(sys.executable).resolve().parent / "Downloads")
+        else:
+            fallback = str(Path.home() / "Downloads" / "Tex")
+        cfg["save_dir"] = fallback
         config.save(cfg)
 
 

@@ -1,12 +1,27 @@
-"""Persistent config: ~/.tex/config.json"""
+"""Persistent config: portable-aware (next to EXE) or ~/.tex/config.json"""
 from __future__ import annotations
 
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any
 
-CONFIG_DIR = Path.home() / ".tex"
+def _base_dir() -> Path:
+    """Return the config root:
+
+    * Portable: ``<exe_dir>/TexData/`` when running from a PyInstaller bundle.
+    * Installed: ``~/.tex/`` (the historical default).
+    """
+    if getattr(sys, 'frozen', False):
+        exe = Path(sys.executable).resolve().parent
+        d = exe / "TexData"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    return Path.home() / ".tex"
+
+
+CONFIG_DIR = _base_dir()
 CONFIG_PATH = CONFIG_DIR / "config.json"
 THUMBS_DIR = CONFIG_DIR / "thumbs"
 

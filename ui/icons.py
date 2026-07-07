@@ -220,6 +220,24 @@ _SVG: dict[str, str] = {
         '<path d="M12 3 A9 9 0 0 1 21 12 L12 12 Z" fill="currentColor"/>'
         '</svg>'
     ),
+
+    # ---------- EDITOR (scissors / trim) ----------
+    "nav_editor": (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+        '<circle cx="7" cy="17" r="3" fill="currentColor"/>'
+        '<circle cx="17" cy="17" r="3" fill="currentColor"/>'
+        '<rect x="5" y="2" width="3" height="13" rx="1.5" fill="currentColor" transform="rotate(-45 6.5 8.5)"/>'
+        '<rect x="15" y="4" width="3" height="9" rx="1.5" fill="currentColor" transform="rotate(45 16.5 8.5)"/>'
+        '</svg>'
+    ),
+    "scissors": (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
+        '<circle cx="7" cy="17" r="3" fill="currentColor"/>'
+        '<circle cx="17" cy="17" r="3" fill="currentColor"/>'
+        '<rect x="5" y="2" width="3" height="13" rx="1.5" fill="currentColor" transform="rotate(-30 6.5 8.5)"/>'
+        '<rect x="15" y="4" width="3" height="9" rx="1.5" fill="currentColor" transform="rotate(30 16.5 8.5)"/>'
+        '</svg>'
+    ),
 }
 
 

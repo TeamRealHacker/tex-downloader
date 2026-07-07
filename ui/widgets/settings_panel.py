@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 
 from core import config
 
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 
 
 def _section_label(text: str) -> QLabel:
