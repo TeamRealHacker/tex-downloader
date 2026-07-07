@@ -143,8 +143,14 @@ def _compute_format_sizes(info: dict[str, Any]) -> dict[str, int]:
         v_size = v.get("filesize") or v.get("filesize_approx") or 0
         # We mux video+audio on download, so the total ≈ sum (with some overhead)
         if v_size:
-            total_size = int(v_size) + (int(best_audio_size) if best_audio_size else 0)
-            out[opt.key] = min(total_size, 9_999_999_999)
+            # For muxed formats (both vcodec and acodec set), the file
+            # already contains audio — don't double-count it.
+            is_muxed = (v.get("acodec") not in (None, "none"))
+            if is_muxed:
+                out[opt.key] = min(int(v_size), 9_999_999_999)
+            else:
+                total_size = int(v_size) + (int(best_audio_size) if best_audio_size else 0)
+                out[opt.key] = min(total_size, 9_999_999_999)
     for opt in MP3_QUALITIES:
         if not audios:
             continue
@@ -323,4 +329,12 @@ def _friendly_err(msg: str) -> str:
         return "Could not parse this page. Site may not be supported."
     if "video unavailable" in m:
         return "Video unavailable."
+    if "login required" in m and ("tiktok" in m or "instagram" in m):
+        return "Login required. Paste cookies in Settings."
+    if "not found" in m and ("tweet" in m or "twitter" in m):
+        return "No video found in this tweet."
+    if "private" in m and ("tiktok" in m or "instagram" in m):
+        return "This content is private."
+    if "age" in m and "tiktok" in m:
+        return "Age-restricted content."
     return msg.splitlines()[0][:200]

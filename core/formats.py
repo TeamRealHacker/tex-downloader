@@ -17,15 +17,22 @@ VIDEO_RUNG_HEIGHT = 2160
 
 
 def _video_prefer_mp4(height: int) -> str:
-    # Prefer MP4 container; fall back to any container for non-YouTube sites
-    # that may only serve webm/mkv/etc.
+    # Prefer MP4 container via DASH (YouTube-style bv*+ba* selectors).
+    # The trailing ``best[height<=N]/best`` fallback is critical for
+    # non-YouTube platforms (TikTok, Instagram, Twitter) that serve
+    # pre-muxed files with no separate video/audio streams.  On those
+    # sites the bv* filters match nothing useful and the format selector
+    # would fail entirely without this fallback.
     return (
         f"bv*[height<={height}][ext=mp4]+ba[ext=m4a]/"
         f"bv*[height<={height}][ext=mp4]+ba/"
         f"bv*[height<={height}]+ba[ext=m4a]/"
         f"bv*[height<={height}]+ba/"
         f"b[height<={height}]/"
-        f"w[height<={height}]"
+        f"w[height<={height}]/"
+        f"best[height<={height}][ext=mp4]/"
+        f"best[height<={height}]/"
+        f"best"
     )
 
 

@@ -160,7 +160,15 @@ class DownloaderWorker(QThread):
             # Only force mp4 merge for YouTube — other platforms (Twitter,
             # Instagram) may only serve webm and forcing mp4 causes errors.
             from .detector import detect
-            if detect(req.url) in ("youtube", "youtube_playlist"):
+            platform = detect(req.url)
+            if platform in ("youtube", "youtube_playlist"):
+                # YouTube DASH streams need explicit mp4 merge.
+                opts["merge_output_format"] = "mp4"
+            elif platform not in ("generic",):
+                # Other known platforms: prefer their native container
+                # (usually mp4) but don't force it — some only serve webm.
+                # Setting this to "mp4" on YouTube avoids mkv/webm merge.
+                # On TikTok/IG/Twitter it's a no-op for muxed formats.
                 opts["merge_output_format"] = "mp4"
 
         # Progress hook — throttled
@@ -220,20 +228,44 @@ class DownloaderWorker(QThread):
             self.status.emit(self.tag, "FETCHING")
             ydl.download([req.url])
 
-        # Compute final file path
+        # Compute final file path.
+        # For audio, FFmpegExtractAudio always outputs .mp3.
+        # For video, the actual extension depends on what yt-dlp downloaded
+        # (YouTube → mp4, but Twitter/Instagram may serve webm/mkv).
+        # We scan the output directory for files matching our template stem
+        # to find the actual output, regardless of extension.
         if quality.kind == "audio":
             final = target.with_suffix(".mp3")
         else:
             final = target.with_suffix(".mp4")
             if not final.exists():
-                # ffmpeg merge may write a different ext — scan siblings
-                # using stem matching (NOT glob — [] in filenames are
-                # metacharacters and break glob patterns).
-                stem = target.stem.lower()
+                # The downloaded file may have a different extension (webm, mkv, ts).
+                # Match by the exact base name (before any extension) that yt-dlp
+                # would have written. The outtmpl we used was:
+                #   str(target.with_suffix("")) + ".%(ext)s"
+                # So the base name is target.with_suffix("").name.
+                base_name = target.with_suffix("").name
+                found = False
                 for f in out_dir.iterdir():
-                    if f.stem.lower() == stem:
+                    # f.name = base_name + ".webm" / ".mkv" / etc.
+                    if f.name.startswith(base_name + ".") or f.name == base_name:
                         final = f
+                        found = True
                         break
+                if not found:
+                    # Last resort: any file modified in the last 60s
+                    import time as _time
+                    now = _time.time()
+                    newest = None
+                    newest_mtime = 0
+                    for f in out_dir.iterdir():
+                        if f.is_file():
+                            mt = f.stat().st_mtime
+                            if mt > newest_mtime and (now - mt) < 120:
+                                newest = f
+                                newest_mtime = mt
+                    if newest:
+                        final = newest
 
         if not final.exists():
             self.finished.emit(self.tag, False, "Output file not found.")

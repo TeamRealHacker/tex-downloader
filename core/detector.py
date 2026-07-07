@@ -11,7 +11,7 @@ Platform = Literal[
 _YT_DOMAINS = ("youtube.com", "youtu.be", "m.youtube.com", "music.youtube.com")
 _TT_DOMAINS = ("tiktok.com", "vm.tiktok.com")
 _IG_DOMAINS = ("instagram.com", "instagr.am")
-_TW_DOMAINS = ("twitter.com", "x.com", "t.co")
+_TW_DOMAINS = ("twitter.com", "x.com")
 
 _URL_RE = re.compile(r"https?://[^\s<>\"']+")
 
