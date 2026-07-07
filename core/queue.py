@@ -129,6 +129,8 @@ class DownloadQueue(QObject):
                     it.worker.finished.disconnect()
                 except RuntimeError:
                     pass  # already disconnected
+                # Schedule thread cleanup — it has already finished running.
+                it.worker.deleteLater()
         self._order = keep_order
         self.cleared.emit()
         self._emit_slots()

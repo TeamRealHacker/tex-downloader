@@ -728,6 +728,18 @@ class TexWindow(QMainWindow):
         self._set_state("fetching")
         self._show_toast("Fetching\u2026")
         self.sound.play("fetch")
+        # Kill any in-flight fetch worker to avoid race conditions.
+        if self._fetch_worker is not None:
+            try:
+                self._fetch_worker.ok.disconnect()
+                self._fetch_worker.fail.disconnect()
+                self._fetch_worker.retried_without_cookies.disconnect()
+            except RuntimeError:
+                pass
+            if self._fetch_worker.isRunning():
+                self._fetch_worker.requestInterruption()
+                self._fetch_worker.quit()
+                self._fetch_worker.wait(3000)
         self._fetch_worker = _FetchWorker(url)
         self._fetch_worker.ok.connect(self._on_fetch_ok)
         self._fetch_worker.fail.connect(self._on_fetch_fail)
@@ -893,8 +905,8 @@ class TexWindow(QMainWindow):
         for it in self.queue.all_items():
             if it.item_id == item_id:
                 card = ProgressCard(theme=self._theme_palette)
-                # Title only — quality already encoded in the filename prefix.
-                card.set_title(it.req.title)
+                # Fall back to URL for bulk downloads where title is empty.
+                card.set_title(it.req.title or it.req.url)
                 self.queue_progress.layout().insertWidget(0, card)
                 self.queue_progress.setVisible(True)
                 # Hide the empty state overlay now that we have real cards.
@@ -929,8 +941,9 @@ class TexWindow(QMainWindow):
         for it in self.queue.all_items():
             if it.item_id == item_id:
                 if ok:
-                    card.set_path(result)
-                    card.set_status("done")
+                    if card:
+                        card.set_path(result)
+                        card.set_status("done")
                     self._show_toast(f"Done \u00B7 {it.req.title[:50]}")
                     self.sound.play("done")
                     self._done_count += 1
@@ -955,13 +968,14 @@ class TexWindow(QMainWindow):
                     except Exception:
                         pass
                 else:
-                    if "Cancel" in result:
-                        card.set_status("cancelled")
-                    else:
-                        card.set_status("error")
-                        card.file_lbl.setText(f"Error \u00B7 {result}")
-                        self._show_toast(f"Error \u00B7 {result[:60]}", 4000)
-                        self.sound.play("error")
+                    if card:
+                        if "Cancel" in result:
+                            card.set_status("cancelled")
+                        else:
+                            card.set_status("error")
+                            card.file_lbl.setText(f"Error \u00B7 {result}")
+                    self._show_toast(f"Error \u00B7 {result[:60]}", 4000)
+                    self.sound.play("error")
                 break
         active = self.queue.active_count()
         self.queue_bar.update_active(active, self.queue.slots())
@@ -995,6 +1009,17 @@ class TexWindow(QMainWindow):
 
     # ---------- Channel tab ----------
     def _on_channel_fetch(self, url: str, content_type: str, max_count: int) -> None:
+        # Kill any in-flight channel worker to avoid race conditions.
+        if hasattr(self, '_channel_worker') and self._channel_worker is not None:
+            try:
+                self._channel_worker.ok.disconnect()
+                self._channel_worker.fail.disconnect()
+            except RuntimeError:
+                pass
+            if self._channel_worker.isRunning():
+                self._channel_worker.requestInterruption()
+                self._channel_worker.quit()
+                self._channel_worker.wait(3000)
         self._channel_worker = _ChannelWorker(url, content_type, max_count)
         self._channel_worker.ok.connect(self._on_channel_ok)
         self._channel_worker.fail.connect(self._on_channel_fail)
@@ -1150,4 +1175,9 @@ class TexWindow(QMainWindow):
         if self.tray:
             self.tray.hide()
         self.queue.cancel_all()
+        # Wait for active downloads to stop — avoid orphaned yt-dlp subprocesses.
+        for it in self.queue.all_items():
+            if it.worker and it.worker.isRunning():
+                it.worker.quit()
+                it.worker.wait(2000)
         QApplication.instance().quit()

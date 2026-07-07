@@ -137,8 +137,9 @@ def _compute_format_sizes(info: dict[str, Any]) -> dict[str, int]:
         ]
         if not cand:
             continue
-        cand.sort(key=lambda x: ((x.get("height") or 0), (x.get("tbr") or 0)))
-        v = cand[-1]
+        # Pick closest resolution to target for more accurate estimates.
+        cand.sort(key=lambda x: (abs((x.get("height") or 0) - h), -(x.get("tbr") or 0)))
+        v = cand[0]
         v_size = v.get("filesize") or v.get("filesize_approx") or 0
         # We mux video+audio on download, so the total ≈ sum (with some overhead)
         if v_size:

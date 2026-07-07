@@ -146,8 +146,6 @@ class Sidebar(QFrame):
         self._brand_dot = QLabel("\u2022")
         self._brand_dot.setObjectName("TitleBrandDot")
         self._brand_dot.setStyleSheet("font-size: 16px;")
-        self._brand = QLabel("Tex")
-        self._brand.setObjectName("SideBrand")
         top.addWidget(self._brand_dot, 0, Qt.AlignmentFlag.AlignVCenter)
         self._brand_lbl = QLabel("Tex")
         self._brand_lbl.setObjectName("SideBrand")

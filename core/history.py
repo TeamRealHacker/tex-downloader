@@ -38,7 +38,7 @@ def load_all() -> list[HistoryEntry]:
             data = json.load(f)
     except Exception:
         return []
-    return [HistoryEntry(**x) for x in data]
+    return [HistoryEntry(**x) for x in data if isinstance(x, dict)]
 
 
 def add(entry: HistoryEntry) -> list[HistoryEntry]:

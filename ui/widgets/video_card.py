@@ -124,6 +124,7 @@ class VideoCard(QFrame):
         self.thumb.setText("LOADING\u2026")
         if self._loader and self._loader.isRunning():
             self._loader.requestInterruption()
+            self._loader.deleteLater()
         if info.thumbnail:
             self._loader = ThumbLoader(info.id, info.thumbnail)
             self._loader.loaded.connect(self._on_thumb)
@@ -131,6 +132,7 @@ class VideoCard(QFrame):
             self._loader.start()
         else:
             self.thumb.setText("NO IMAGE")
+            self._loader = None
 
     def _on_thumb(self, vid_id: str, pix: QPixmap) -> None:
         if vid_id == self._current_id:

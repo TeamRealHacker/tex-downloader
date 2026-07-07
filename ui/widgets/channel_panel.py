@@ -121,9 +121,11 @@ class _ThumbQueue(QObject):
         self._pending.clear()
         if self._active and hasattr(self, '_loader') and self._loader:
             self._loader.requestInterruption()
+            self._loader.deleteLater()
         self._active = False
         self._current_vid = ""
         self._current_row = None
+        self._loader = None
 
     def request(self, vid_id: str, url: str, row: "_ChannelRow") -> None:
         # Dedupe — if a request for this vid_id is already pending or
@@ -162,7 +164,9 @@ class _ThumbQueue(QObject):
         self._active = False
         self._current_vid = ""
         self._current_row = None
-        self._loader = None
+        if self._loader is not None:
+            self._loader.deleteLater()
+            self._loader = None
         # Process next — defer to next event loop tick so we don't block.
         QTimer.singleShot(0, self._pump)
 
