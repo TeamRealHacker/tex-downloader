@@ -165,7 +165,6 @@ _BROWSER_COOKIE_HINTS = (
     "cookiesfrombrowser",
     "decryption failed",
     "win32crypt",
-    "cookie",
     "no saved credentials",
 )
 

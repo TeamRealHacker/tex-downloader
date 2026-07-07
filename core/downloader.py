@@ -157,7 +157,11 @@ class DownloaderWorker(QThread):
             opts["writethumbnail"] = False
         else:
             opts["format"] = quality.format_str
-            opts["merge_output_format"] = "mp4"
+            # Only force mp4 merge for YouTube — other platforms (Twitter,
+            # Instagram) may only serve webm and forcing mp4 causes errors.
+            from .detector import detect
+            if detect(req.url) in ("youtube", "youtube_playlist"):
+                opts["merge_output_format"] = "mp4"
 
         # Progress hook — throttled
         last_emit = [0.0]
@@ -191,7 +195,13 @@ class DownloaderWorker(QThread):
                         int(downloaded), int(total),
                     )
             elif d.get("status") == "finished":
-                self.progress.emit(self.tag, 100.0, 0.0, 0.0, 0, 0)
+                # Preserve actual downloaded/total values — the queue card uses
+                # these to show the final size (e.g. "45.2 MB / 45.2 MB").
+                self.progress.emit(
+                    self.tag, 100.0, 0.0, 0.0,
+                    int(downloaded or d.get("downloaded_bytes") or 0),
+                    int(total or d.get("total_bytes") or 0),
+                )
                 self.status.emit(self.tag, "FINALIZING")
 
         opts["progress_hooks"] = [_hook]

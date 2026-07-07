@@ -95,7 +95,12 @@ def _filter_short(entry: dict, want: str) -> bool:
     if want == "all":
         return True
     eurl = (entry.get("url") or entry.get("webpage_url") or "").lower()
-    is_short = "/shorts/" in eurl
+    # Detect short-form content across platforms.
+    is_short = (
+        "/shorts/" in eurl                           # YouTube Shorts
+        or "/video/" in eurl and "tiktok" in eurl    # TikTok videos
+        or "/reel" in eurl                            # Instagram Reels
+    )
     if want == "shorts":
         return is_short
     if want == "videos":

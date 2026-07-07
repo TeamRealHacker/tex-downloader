@@ -17,10 +17,15 @@ VIDEO_RUNG_HEIGHT = 2160
 
 
 def _video_prefer_mp4(height: int) -> str:
-    # Even if muxer not available, ask for mp4.
+    # Prefer MP4 container; fall back to any container for non-YouTube sites
+    # that may only serve webm/mkv/etc.
     return (
-        f"bv*[height<={height}][ext=mp4]+ba[ext=m4a]/b[height<={height}][ext=mp4]"
-        f"/bv*[height<={height}]+ba/b[height<={height}]"
+        f"bv*[height<={height}][ext=mp4]+ba[ext=m4a]/"
+        f"bv*[height<={height}][ext=mp4]+ba/"
+        f"bv*[height<={height}]+ba[ext=m4a]/"
+        f"bv*[height<={height}]+ba/"
+        f"b[height<={height}]/"
+        f"w[height<={height}]"
     )
 
 

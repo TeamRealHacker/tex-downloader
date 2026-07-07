@@ -362,10 +362,14 @@ class TitleBar(QFrame):
             w.style().polish(w)
 
         if state in ("downloading", "fetching"):
+            # Stop previous animation to avoid leaking QPropertyAnimation objects.
             eff = self._title.graphicsEffect()
-            if not isinstance(eff, QGraphicsColorizeEffect):
-                eff = QGraphicsColorizeEffect(self._title)
-                self._title.setGraphicsEffect(eff)
+            if isinstance(eff, QGraphicsColorizeEffect):
+                for child in self._title.findChildren(QPropertyAnimation):
+                    child.stop()
+                    child.deleteLater()
+            eff = QGraphicsColorizeEffect(self._title)
+            self._title.setGraphicsEffect(eff)
             eff.setColor(QColor("#FFFFFF"))
             a = QPropertyAnimation(eff, b"strength", self._title)
             a.setDuration(1100)
