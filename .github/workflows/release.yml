@@ -19,18 +19,35 @@ jobs:
         run: |
           pip install PyInstaller PySide6 yt-dlp imageio-ffmpeg mutagen requests Pillow
 
-      - name: Build
+      - name: Download FFmpeg
+        run: |
+          curl -L -o ffmpeg-release.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          7z x ffmpeg-release.zip -offmpeg_build
+          copy "ffmpeg_build\ffmpeg-*-essentials_build\bin\ffmpeg.exe" assets\ffmpeg.exe
+          del ffmpeg-release.zip
+          rmdir /s /q ffmpeg_build
+
+      - name: Build (one-directory)
         run: python build.py
 
-      - name: Upload EXE
+      - name: Copy FFmpeg into build
+        run: copy assets\ffmpeg.exe dist\TEX\ffmpeg.exe
+
+      - name: Create ZIP
+        run: |
+          cd dist\TEX
+          7z a -mx=9 ..\TEX-Portable.zip *
+          cd ..\..
+
+      - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         with:
           name: TEX-Portable
-          path: dist/TEX.exe
+          path: dist/TEX-Portable.zip
 
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/TEX.exe
+          files: dist/TEX-Portable.zip
           generate_release_notes: true
