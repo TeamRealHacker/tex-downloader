@@ -20,27 +20,25 @@ jobs:
           pip install PyInstaller PySide6 yt-dlp imageio-ffmpeg mutagen requests Pillow
 
       - name: Download FFmpeg
-        shell: cmd
         run: |
-          curl -L -o ffmpeg-release.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
-          7z x ffmpeg-release.zip -offmpeg_build
-          for /d %%i in (ffmpeg_build\ffmpeg-*-essentials_build) do copy "%%i\bin\ffmpeg.exe" assets\ffmpeg.exe
-          del ffmpeg-release.zip
-          rmdir /s /q ffmpeg_build
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile "ffmpeg-release.zip"
+          Expand-Archive -Path "ffmpeg-release.zip" -DestinationPath "ffmpeg_build"
+          $ffmpegDir = Get-ChildItem -Path "ffmpeg_build" -Directory | Where-Object { $_.Name -like "ffmpeg-*-essentials_build" } | Select-Object -First 1
+          Copy-Item -Path "$($ffmpegDir.FullName)\bin\ffmpeg.exe" -Destination "assets\ffmpeg.exe"
+          Remove-Item -Path "ffmpeg-release.zip" -Force
+          Remove-Item -Path "ffmpeg_build" -Recurse -Force
 
       - name: Build (one-directory)
         run: python build.py
 
       - name: Copy FFmpeg into build
-        shell: cmd
-        run: copy assets\ffmpeg.exe dist\TEX\ffmpeg.exe
+        run: Copy-Item -Path "assets\ffmpeg.exe" -Destination "dist\TEX\ffmpeg.exe"
 
       - name: Create ZIP
-        shell: cmd
         run: |
-          cd dist\TEX
-          7z a -mx=9 ..\TEX-Portable.zip *
-          cd ..\..
+          Push-Location "dist\TEX"
+          & 7z a -mx=9 "..\TEX-Portable.zip" *
+          Pop-Location
 
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
