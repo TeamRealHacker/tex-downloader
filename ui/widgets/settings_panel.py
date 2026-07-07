@@ -219,7 +219,10 @@ class SettingsPanel(QFrame):
         self.conc_spin.valueChanged.connect(self._on_change)
         self.conc_unlimited_chk = QCheckBox("Unlimited parallel slots")
         # Checked when stored value is 0 / unset.
+        # Block signals during init to prevent premature config save.
+        self.conc_unlimited_chk.blockSignals(True)
         self.conc_unlimited_chk.setChecked(cur_conc <= 0)
+        self.conc_unlimited_chk.blockSignals(False)
         self.conc_unlimited_chk.stateChanged.connect(self._on_conc_unlimited_toggle)
         # Spinbox is meaningless when unlimited is on — dim it.
         self.conc_spin.setEnabled(cur_conc > 0)

@@ -143,7 +143,8 @@ def _compute_format_sizes(info: dict[str, Any]) -> dict[str, int]:
         v_size = v.get("filesize") or v.get("filesize_approx") or 0
         # We mux video+audio on download, so the total ≈ sum (with some overhead)
         if v_size:
-            out[opt.key] = min(int(v_size) + int(best_audio_size), 2_147_483_647) if best_audio_size else int(v_size)
+            total_size = int(v_size) + (int(best_audio_size) if best_audio_size else 0)
+            out[opt.key] = min(total_size, 9_999_999_999)
     for opt in MP3_QUALITIES:
         if not audios:
             continue

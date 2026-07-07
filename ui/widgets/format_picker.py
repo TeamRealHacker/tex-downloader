@@ -40,13 +40,11 @@ class FormatChip(QFrame):
         lay.addWidget(self.size_lbl)
 
     def set_size(self, text: str) -> None:
-        """Set the human-readable size estimate. ``"-"`` (em-dash) means
-        the format is unavailable for this video — disable the chip."""
+        """Set the human-readable size estimate.
+        Size "—" just means the size is unknown (not that the format is unavailable).
+        """
         self._size_text = text
         self.size_lbl.setText(text.upper())
-        # "—" / "N/A" / "" all count as unavailable.
-        unavailable = (not text) or text.strip() in ("\u2014", "-", "N/A", "n/a", "")
-        self.set_available(not unavailable)
 
     def set_available(self, on: bool) -> None:
         self._available = bool(on)

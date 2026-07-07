@@ -123,6 +123,11 @@ class VideoCard(QFrame):
 
         self.thumb.setText("LOADING\u2026")
         if self._loader and self._loader.isRunning():
+            try:
+                self._loader.loaded.disconnect()
+                self._loader.failed.disconnect()
+            except RuntimeError:
+                pass
             self._loader.requestInterruption()
             self._loader.deleteLater()
         if info.thumbnail:

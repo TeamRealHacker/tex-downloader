@@ -74,6 +74,8 @@ class _Item(QFrame):
         x = float(n)
         for unit in ("B", "KB", "MB", "GB", "TB"):
             if abs(x) < 1024:
+                if unit == "B":
+                    return f"{int(x)} {unit}"
                 return f"{x:.1f} {unit}"
             x /= 1024
         return f"{x:.1f} PB"

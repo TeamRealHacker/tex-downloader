@@ -197,10 +197,11 @@ class DownloaderWorker(QThread):
             elif d.get("status") == "finished":
                 # Preserve actual downloaded/total values — the queue card uses
                 # these to show the final size (e.g. "45.2 MB / 45.2 MB").
+                fin_dl = d.get("downloaded_bytes") or downloaded or 0
+                fin_tot = d.get("total_bytes") or total or 0
                 self.progress.emit(
                     self.tag, 100.0, 0.0, 0.0,
-                    int(downloaded or d.get("downloaded_bytes") or 0),
-                    int(total or d.get("total_bytes") or 0),
+                    int(fin_dl), int(fin_tot),
                 )
                 self.status.emit(self.tag, "FINALIZING")
 
@@ -238,5 +239,4 @@ class DownloaderWorker(QThread):
             self.finished.emit(self.tag, False, "Output file not found.")
             return
 
-        self.progress.emit(self.tag, 100.0, 0.0, 0.0, 0, 0)
         self.finished.emit(self.tag, True, str(final))

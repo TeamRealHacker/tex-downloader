@@ -120,7 +120,14 @@ class _ThumbQueue(QObject):
         """Cancel in-flight and clear all pending thumbnail requests."""
         self._pending.clear()
         if self._active and hasattr(self, '_loader') and self._loader:
+            try:
+                self._loader.loaded.disconnect()
+                self._loader.failed.disconnect()
+                self._loader.finished.disconnect()
+            except RuntimeError:
+                pass
             self._loader.requestInterruption()
+            self._loader.wait(2000)
             self._loader.deleteLater()
         self._active = False
         self._current_vid = ""
@@ -165,6 +172,13 @@ class _ThumbQueue(QObject):
         self._current_vid = ""
         self._current_row = None
         if self._loader is not None:
+            # Disconnect signals before deleteLater to prevent stale emits
+            try:
+                self._loader.loaded.disconnect()
+                self._loader.failed.disconnect()
+                self._loader.finished.disconnect()
+            except RuntimeError:
+                pass
             self._loader.deleteLater()
             self._loader = None
         # Process next — defer to next event loop tick so we don't block.
@@ -344,7 +358,7 @@ class ChannelPanel(QFrame):
         filt_row.addWidget(count_lbl)
 
         self.count_spin = QSpinBox()
-        self.count_spin.setRange(1, 500)
+        self.count_spin.setRange(1, 200)
         self.count_spin.setValue(10)
         self.count_spin.setFixedWidth(70)
         self.count_spin.setFixedHeight(30)

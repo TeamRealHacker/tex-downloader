@@ -778,6 +778,16 @@ class TexWindow(QMainWindow):
 
     def _on_fetch_ok(self, result: metadata.FetchResult) -> None:
         self._set_state("idle")
+        # Clean up the fetch worker — it's done, free the QThread.
+        if self._fetch_worker is not None:
+            try:
+                self._fetch_worker.ok.disconnect()
+                self._fetch_worker.fail.disconnect()
+                self._fetch_worker.retried_without_cookies.disconnect()
+            except RuntimeError:
+                pass
+            self._fetch_worker.deleteLater()
+            self._fetch_worker = None
         self._current_result = result
 
         self.video_card.clear()
@@ -812,6 +822,16 @@ class TexWindow(QMainWindow):
 
     def _on_fetch_fail(self, err: str) -> None:
         self._set_state("idle")
+        # Clean up the fetch worker on failure too.
+        if self._fetch_worker is not None:
+            try:
+                self._fetch_worker.ok.disconnect()
+                self._fetch_worker.fail.disconnect()
+                self._fetch_worker.retried_without_cookies.disconnect()
+            except RuntimeError:
+                pass
+            self._fetch_worker.deleteLater()
+            self._fetch_worker = None
         self.empty_state.setVisible(True)
         self._show_toast(f"Error \u00B7 {err}", 4000)
         self.sound.play("error")
@@ -1148,8 +1168,9 @@ class TexWindow(QMainWindow):
                 self.url_bar.set_text(urls[0])
             else:
                 # Multi-URL drop — join and let _on_fetch handle bulk enqueue
-                self.url_bar.set_text(" \n".join(urls))
-                self._on_fetch(" \n".join(urls))
+                joined = " ".join(urls)
+                self.url_bar.set_text(joined)
+                self._on_fetch(joined)
 
     # ---------- Clipboard ----------
     def _on_url_from_clipboard(self, url: str) -> None:
@@ -1174,6 +1195,31 @@ class TexWindow(QMainWindow):
     def _quit(self) -> None:
         if self.tray:
             self.tray.hide()
+        # Stop clipboard watcher
+        self.clip_watcher.stop()
+        # Kill fetch worker if running
+        if self._fetch_worker is not None:
+            try:
+                self._fetch_worker.ok.disconnect()
+                self._fetch_worker.fail.disconnect()
+                self._fetch_worker.retried_without_cookies.disconnect()
+            except RuntimeError:
+                pass
+            if self._fetch_worker.isRunning():
+                self._fetch_worker.requestInterruption()
+                self._fetch_worker.quit()
+                self._fetch_worker.wait(3000)
+        # Kill channel worker if running
+        if hasattr(self, '_channel_worker') and self._channel_worker is not None:
+            try:
+                self._channel_worker.ok.disconnect()
+                self._channel_worker.fail.disconnect()
+            except RuntimeError:
+                pass
+            if self._channel_worker.isRunning():
+                self._channel_worker.requestInterruption()
+                self._channel_worker.quit()
+                self._channel_worker.wait(3000)
         self.queue.cancel_all()
         # Wait for active downloads to stop — avoid orphaned yt-dlp subprocesses.
         for it in self.queue.all_items():

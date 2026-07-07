@@ -179,15 +179,16 @@ class SoundManager:
             self._effects[name] = eff
 
     def play(self, name: str) -> None:
-        """Play a sound by filename stem (e.g. 'done'). No-op if disabled or missing."""
+        """Play a sound by filename stem (e.g. 'done'). No-op if disabled or missing.
+        Does not cut off the same sound if already playing — allows overlapping
+        notifications when multiple downloads finish at once."""
         if not self._enabled:
             return
         eff: Optional[QSoundEffect] = self._effects.get(name + ".wav") or self._effects.get(name)
         if eff is None:
             return
         try:
-            if eff.isPlaying():
-                eff.stop()
-            eff.play()
+            if not eff.isPlaying():
+                eff.play()
         except Exception:
             pass

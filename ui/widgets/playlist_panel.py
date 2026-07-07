@@ -136,6 +136,10 @@ class PlaylistPanel(QFrame):
                      entries: list[VideoInfo],
                      precheck_ids: set[str]) -> None:
         from PySide6.QtCore import QTimer
+        # Clean up old row widgets
+        for r in self._rows:
+            r.setParent(None)
+            r.deleteLater()
         self._rows.clear()
         self.list.clear()
 

@@ -55,8 +55,14 @@ def _save(items: list[HistoryEntry]) -> None:
     tmp = p.with_suffix(".tmp")
     with tmp.open("w", encoding="utf-8") as f:
         json.dump([asdict(i) for i in items], f, indent=2)
-    import os
-    os.replace(tmp, p)
+    try:
+        os.replace(tmp, p)
+    except PermissionError:
+        try:
+            p.unlink(missing_ok=True)
+            tmp.rename(p)
+        except OSError:
+            pass
 
 
 def try_get_size(path: str) -> int:
