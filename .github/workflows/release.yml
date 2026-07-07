@@ -20,10 +20,11 @@ jobs:
           pip install PyInstaller PySide6 yt-dlp imageio-ffmpeg mutagen requests Pillow
 
       - name: Download FFmpeg
+        shell: cmd
         run: |
           curl -L -o ffmpeg-release.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
           7z x ffmpeg-release.zip -offmpeg_build
-          copy "ffmpeg_build\ffmpeg-*-essentials_build\bin\ffmpeg.exe" assets\ffmpeg.exe
+          for /d %%i in (ffmpeg_build\ffmpeg-*-essentials_build) do copy "%%i\bin\ffmpeg.exe" assets\ffmpeg.exe
           del ffmpeg-release.zip
           rmdir /s /q ffmpeg_build
 
@@ -31,9 +32,11 @@ jobs:
         run: python build.py
 
       - name: Copy FFmpeg into build
+        shell: cmd
         run: copy assets\ffmpeg.exe dist\TEX\ffmpeg.exe
 
       - name: Create ZIP
+        shell: cmd
         run: |
           cd dist\TEX
           7z a -mx=9 ..\TEX-Portable.zip *
