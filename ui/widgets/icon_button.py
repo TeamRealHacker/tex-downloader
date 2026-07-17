@@ -46,7 +46,10 @@ class IconButton(QFrame):
         self._glyph.setFixedSize(width, height)
         self._glyph.setProperty("iconColor", self._theme["fg"])
         lay.addWidget(self._glyph, 0, Qt.AlignmentFlag.AlignCenter)
-        self._glyph.installEventFilter(self)
+        # NOTE: No eventFilter installed — _refresh_glyph() is called from
+        # changeEvent, showEvent, enterEvent, leaveEvent, mousePressEvent,
+        # mouseReleaseEvent.  A Paint eventFilter caused ~1200 SVG re-parses
+        # per second when hovering over buttons (now cached in icons.render).
         # Initial render
         self._refresh_glyph()
 
@@ -75,11 +78,6 @@ class IconButton(QFrame):
     def showEvent(self, e) -> None:
         self._refresh_glyph()
         super().showEvent(e)
-
-    def eventFilter(self, obj, e) -> bool:
-        if obj is self._glyph and e.type() == e.Type.Paint:
-            self._refresh_glyph()
-        return super().eventFilter(obj, e)
 
     def mousePressEvent(self, e) -> None:
         if e.button() == Qt.MouseButton.LeftButton:

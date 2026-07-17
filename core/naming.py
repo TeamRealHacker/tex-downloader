@@ -31,6 +31,18 @@ def render(
     }
     out = _TOKEN_RE.sub(lambda m: mapping.get(m.group(1), m.group(0)), template)
 
+    # Strip path separators and traversal sequences from the literal parts
+    # of the template (user could set "../{title}.{ext}" which would write
+    # outside the intended directory).
+    out = out.replace("\\", "/")
+    # Remove any leading or embedded ../  or ..\  traversal
+    while "../" in out:
+        out = out.replace("../", "")
+    while "./" in out:
+        out = out.replace("./", "")
+    # Strip leading /  (absolute path injection)
+    out = out.lstrip("/")
+
     if "{ext}" not in template:
         out = f"{out}.{ext}"
     else:

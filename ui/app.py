@@ -1257,6 +1257,8 @@ class TexWindow(QMainWindow):
                 self._fetch_worker.requestInterruption()
                 self._fetch_worker.quit()
                 self._fetch_worker.wait(3000)
+            self._fetch_worker.deleteLater()
+            self._fetch_worker = None
         # Kill channel worker if running
         if hasattr(self, '_channel_worker') and self._channel_worker is not None:
             try:

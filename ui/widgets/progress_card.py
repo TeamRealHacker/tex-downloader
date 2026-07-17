@@ -140,7 +140,11 @@ class ProgressCard(QFrame):
         # Use Qt's elide so long titles get "…" on the right when the row is
         # narrow. The tooltip keeps the full text available on hover.
         fm = self.file_lbl.fontMetrics()
-        elided = fm.elidedText(title, Qt.TextElideMode.ElideRight, self.file_lbl.maximumWidth() or 600)
+        # Use the label's actual width (or a sensible default if not yet laid out).
+        # maximumWidth() returns QWIDGETSIZE_MAX when not explicitly set, which
+        # means elision would never trigger for long video titles.
+        avail = self.file_lbl.width() if self.file_lbl.width() > 50 else 600
+        elided = fm.elidedText(title, Qt.TextElideMode.ElideRight, avail - 10)
         self.file_lbl.setText(elided)
         self.file_lbl.setToolTip(title)
         self._finished = False

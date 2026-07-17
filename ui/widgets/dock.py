@@ -7,6 +7,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout
 
 from ui.widgets.dot_matrix import TEX_GLYPH_X, DotMatrix
+from ui.widgets.settings_panel import APP_VERSION
 
 
 class _Item(QFrame):
@@ -53,7 +54,7 @@ class Dock(QFrame):
         brand.setAlignment(Qt.AlignmentFlag.AlignVCenter)
         art = DotMatrix(TEX_GLYPH_X, pixel=2, gap=1, on_color="#D7191A")
         brand.addWidget(art, 0, Qt.AlignmentFlag.AlignVCenter)
-        ver = QLabel("TEX  v0.2")
+        ver = QLabel(f"TEX  v{APP_VERSION}")
         ver.setObjectName("DockLabel")
         brand.addWidget(ver)
         lay.addLayout(brand)

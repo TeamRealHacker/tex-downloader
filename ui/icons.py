@@ -241,28 +241,28 @@ _SVG: dict[str, str] = {
 }
 
 
-_RENDERERS: dict[str, QSvgRenderer] = {}
-
-
-def _renderer(name: str) -> QSvgRenderer | None:
-    r = _RENDERERS.get(name)
-    if r is None:
-        svg = _SVG.get(name)
-        if not svg:
-            return None
-        r = QSvgRenderer(svg.encode("utf-8"))
-        _RENDERERS[name] = r
-    return r
+# Cache rendered QPixmaps keyed by (name, color_hex, size, opacity*100).
+_PIX_CACHE: dict[tuple[str, str, int, int], QPixmap] = {}
+_CACHE_MAX = 512
 
 
 def render(name: str, color: "QColor | str" = "#FFFFFF", size: int = 16,
            opacity: float = 1.0) -> QPixmap:
-    """Render an icon to a QPixmap, replacing currentColor with the given color."""
+    """Render an icon to a QPixmap, replacing currentColor with the given color.
+
+    Results are cached so that repeated calls with the same arguments return
+    the same QPixmap instantly (no new QSvgRenderer / QPainter allocation).
+    """
     raw = _SVG.get(name)
     if not raw:
         return QPixmap(size, size)
     if isinstance(color, str):
         color = QColor(color)
+
+    cache_key = (name, color.name(QColor.NameFormat.HexRgb), size, int(opacity * 100))
+    cached = _PIX_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
 
     # Use 6-digit hex — QSvgRenderer in PySide6 may not handle 8-digit (#RRGGBBAA).
     tinted = raw.replace("currentColor", color.name(QColor.NameFormat.HexRgb))
@@ -279,7 +279,16 @@ def render(name: str, color: "QColor | str" = "#FFFFFF", size: int = 16,
     p.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     rr.render(p, QRectF(0, 0, size, size))
     p.end()
-    return QPixmap.fromImage(img)
+    result = QPixmap.fromImage(img)
+
+    # Evict oldest entries when the cache grows too large.
+    if len(_PIX_CACHE) >= _CACHE_MAX:
+        # Drop the first 25% of entries (FIFO).
+        keys_to_drop = list(_PIX_CACHE.keys())[: _CACHE_MAX // 4]
+        for k in keys_to_drop:
+            del _PIX_CACHE[k]
+    _PIX_CACHE[cache_key] = result
+    return result
 
 
 def qicon(name: str, color: "QColor | str" = "#FFFFFF", size: int = 16) -> "QIcon":
@@ -287,4 +296,9 @@ def qicon(name: str, color: "QColor | str" = "#FFFFFF", size: int = 16) -> "QIco
     return QIcon(render(name, color, size))
 
 
-__all__ = ["render", "qicon"] + list(_SVG.keys())
+def clear_cache() -> None:
+    """Clear the pixmap cache (e.g. after theme accent change)."""
+    _PIX_CACHE.clear()
+
+
+__all__ = ["render", "qicon", "clear_cache"] + list(_SVG.keys())

@@ -15,9 +15,7 @@ def _base_dir() -> Path:
     """
     if getattr(sys, 'frozen', False):
         exe = Path(sys.executable).resolve().parent
-        d = exe / "TexData"
-        d.mkdir(parents=True, exist_ok=True)
-        return d
+        return exe / "TexData"
     return Path.home() / ".tex"
 
 

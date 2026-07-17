@@ -38,7 +38,18 @@ def load_all() -> list[HistoryEntry]:
             data = json.load(f)
     except Exception:
         return []
-    return [HistoryEntry(**x) for x in data if isinstance(x, dict)]
+    valid_fields = set(HistoryEntry.__dataclass_fields__)
+    items: list[HistoryEntry] = []
+    for x in data:
+        if not isinstance(x, dict):
+            continue
+        # Filter out unknown keys so future schema additions don't crash loading.
+        filtered = {k: v for k, v in x.items() if k in valid_fields}
+        try:
+            items.append(HistoryEntry(**filtered))
+        except (TypeError, ValueError):
+            continue  # skip corrupt individual entries
+    return items
 
 
 def add(entry: HistoryEntry) -> list[HistoryEntry]:

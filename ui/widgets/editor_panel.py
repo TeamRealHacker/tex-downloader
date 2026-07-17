@@ -191,6 +191,7 @@ class EditorPanel(QFrame):
         self._result = None
         self._quality = MP4_QUALITIES[2]  # default 1080p
         self._worker: _EditorFetchWorker | None = None
+        self._thumb_loader: "ThumbLoader | None" = None
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(20, 18, 20, 18)
@@ -334,6 +335,8 @@ class EditorPanel(QFrame):
         self.status_lbl.setText("Fetching\u2026")
         self.url_input.set_loading(True)
         self.btn_trim.setVisible(False)
+        # Kill previous thumbnail loader
+        self._kill_thumb_loader()
         # Kill previous worker
         if self._worker is not None:
             try:
@@ -438,10 +441,13 @@ class EditorPanel(QFrame):
         self.status_lbl.setText(f"Trimming {_fmt_time(s)} \u2192 {_fmt_time(e)} queued.")
 
     def _load_thumb(self, video_id: str, url: str) -> None:
+        # Kill any previous thumb loader first
+        self._kill_thumb_loader()
         from ui.widgets.video_card import ThumbLoader
         loader = ThumbLoader(video_id, url, self)
+        self._thumb_loader = loader
         def _on_loaded(vid, pix):
-            if vid == video_id:
+            if vid == video_id and self._thumb_loader is loader:
                 self.thumb_lbl.setPixmap(
                     pix.scaled(168, 94, Qt.AspectRatioMode.KeepAspectRatio,
                                Qt.TransformationMode.SmoothTransformation)
@@ -449,6 +455,20 @@ class EditorPanel(QFrame):
                 self.thumb_lbl.setText("")
         loader.loaded.connect(_on_loaded)
         loader.start()
+
+    def _kill_thumb_loader(self) -> None:
+        if self._thumb_loader is not None:
+            try:
+                self._thumb_loader.loaded.disconnect()
+                self._thumb_loader.failed.disconnect()
+            except RuntimeError:
+                pass
+            if self._thumb_loader.isRunning():
+                self._thumb_loader.requestInterruption()
+                self._thumb_loader.quit()
+                self._thumb_loader.wait(2000)
+            self._thumb_loader.deleteLater()
+            self._thumb_loader = None
 
 
 class _EditorUrlInput(QFrame):

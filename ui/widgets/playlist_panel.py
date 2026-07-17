@@ -88,6 +88,14 @@ class PlaylistPanel(QFrame):
         self.subtitle_lbl.setWordWrap(True)
         lay.addWidget(self.subtitle_lbl)
 
+        # Empty state (hidden when entries exist)
+        self._empty_lbl = QLabel("This playlist is empty or private.")
+        self._empty_lbl.setObjectName("Meta")
+        self._empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self._empty_lbl.setWordWrap(True)
+        self._empty_lbl.setVisible(False)
+        lay.addWidget(self._empty_lbl)
+
         # Buttons row
         btn_row = QHBoxLayout()
         btn_row.setSpacing(6)
@@ -162,6 +170,13 @@ class PlaylistPanel(QFrame):
             self.list.setItemWidget(item, row)
 
         self.setVisible(True)
+        # Show empty state when no entries
+        if n == 0:
+            self._empty_lbl.setVisible(True)
+            self.btn_dl_selected.setEnabled(False)
+            self.btn_dl_all.setEnabled(False)
+        else:
+            self._empty_lbl.setVisible(False)
         self._refresh_count()
 
         # Stagger animation

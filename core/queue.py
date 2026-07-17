@@ -104,14 +104,14 @@ class DownloadQueue(QObject):
         if not it or not it.worker:
             return
         if it.status == "active":
-            it.worker.toggle_pause()
             # Snapshot status BEFORE the toggle to avoid TOCTOU race.
             it.status = "paused"
             self.status_changed.emit(item_id, "paused")
-        elif it.status == "paused":
             it.worker.toggle_pause()
+        elif it.status == "paused":
             it.status = "active"
             self.status_changed.emit(item_id, "active")
+            it.worker.toggle_pause()
 
     def clear_finished(self) -> None:
         keep_order = [k for k in self._order if self._items[k].status not in ("done", "error", "cancelled")]

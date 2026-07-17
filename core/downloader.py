@@ -158,11 +158,12 @@ class DownloaderWorker(QThread):
             opts["ratelimit"] = _safe_int(config.get("speed_limit_bps"), 0)
 
         # Trim support: use yt-dlp's --download-sections for segment downloads.
+        # Format: "*start_time-end_time" where times are HH:MM:SS or MM:SS.
         if req.trim_start > 0 or req.trim_end > 0:
-            opts["download_sections"] = True
+            start_t = _fmt_ytdlp_time(req.trim_start)
+            end_t = _fmt_ytdlp_time(req.trim_end)
+            opts["download_sections"] = f"*{start_t}-{end_t}"
             opts["force_keyframes_at_cuts"] = True
-            opts["section_start"] = _fmt_ytdlp_time(req.trim_start)
-            opts["section_end"] = _fmt_ytdlp_time(req.trim_end)
 
         # Format / post-processors
         if quality.kind == "audio":
