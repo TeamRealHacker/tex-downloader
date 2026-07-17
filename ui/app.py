@@ -1026,6 +1026,13 @@ class TexWindow(QMainWindow):
             if iid not in keep_ids:
                 card = self._per_video_progress.pop(iid)
                 card.cleanup()
+                # Disconnect any signals from the card to prevent use-after-free
+                try:
+                    card.cancel.disconnect()
+                    card.pause_toggle.disconnect()
+                    card.open_folder.disconnect()
+                except RuntimeError:
+                    pass
                 card.deleteLater()
         if not self._per_video_progress:
             self.queue_progress.setVisible(False)
@@ -1070,7 +1077,10 @@ class TexWindow(QMainWindow):
     # ---------- Editor trim download ----------
     def _fmt_sec(self, s: float) -> str:
         s = max(0.0, s)
-        m, sec = divmod(int(s), 60)
+        h, rem = divmod(int(s), 3600)
+        m, sec = divmod(rem, 60)
+        if h:
+            return f"{h}:{m:02d}:{sec:02d}"
         return f"{m}:{sec:02d}"
 
     def _on_trim_download(self, url: str, start_sec: float, end_sec: float, quality) -> None:
@@ -1079,14 +1089,12 @@ class TexWindow(QMainWindow):
         ext = "mp4"
         out_dir = config.ensure_save_subdir("video")
         tpl = config.get("filename_template", "{title} [{quality}].{ext}")
-        trim_label = f"{int(start_sec//60)}m{int(start_sec%60)}s-{int(end_sec//60)}m{int(end_sec%60)}s"
-        title = f"[Trim] {trim_label}"
-        target = render_path(
-            tpl, out_dir,
-            title=title, channel="",
-            quality=quality.key, vid_id="", ext=ext,
-        )
-        target = unique_path(target)
+        trim_label = f"{self._fmt_sec(start_sec)}-{self._fmt_sec(end_sec)}"
+        # Use the video title from the editor result if available
+        video_title = ""
+        if self.page_editor._result and self.page_editor._result.video:
+            video_title = self.page_editor._result.video.title
+        title = f"{video_title} [Trim {trim_label}]" if video_title else f"[Trim] {trim_label}"
         req = DownloadRequest(
             url=url, title=title, uploader="", vid_id="",
             quality_key=quality.key, out_dir=str(out_dir), template=tpl,
@@ -1260,6 +1268,8 @@ class TexWindow(QMainWindow):
                 self._channel_worker.requestInterruption()
                 self._channel_worker.quit()
                 self._channel_worker.wait(3000)
+            self._channel_worker.deleteLater()
+            self._channel_worker = None
         self.queue.cancel_all()
         # Wait for active downloads to stop — avoid orphaned yt-dlp subprocesses.
         for it in self.queue.all_items():

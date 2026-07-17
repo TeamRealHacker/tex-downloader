@@ -28,7 +28,16 @@ from typing import Optional
 from PySide6.QtCore import QUrl
 from PySide6.QtMultimedia import QSoundEffect
 
-ASSETS = Path(__file__).resolve().parent.parent / "assets"
+import sys as _sys
+
+def _assets_dir() -> Path:
+    """Resolve the assets/ directory — works in dev and PyInstaller frozen mode."""
+    if getattr(_sys, "frozen", False):
+        # PyInstaller --onedir: assets/ lives next to the EXE.
+        return Path(_sys.executable).resolve().parent / "assets"
+    return Path(__file__).resolve().parent.parent / "assets"
+
+ASSETS = _assets_dir()
 SOUNDS_DIR = ASSETS / "sounds"
 
 # (filename, freq, freq_end, duration_ms, decay_tau, click_gain, body)

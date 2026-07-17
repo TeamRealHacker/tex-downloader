@@ -129,6 +129,8 @@ class VideoCard(QFrame):
             except RuntimeError:
                 pass
             self._loader.requestInterruption()
+            self._loader.quit()
+            self._loader.wait(2000)
             self._loader.deleteLater()
         if info.thumbnail:
             self._loader = ThumbLoader(info.id, info.thumbnail)

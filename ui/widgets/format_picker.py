@@ -29,7 +29,7 @@ class FormatChip(QFrame):
         self._btn.setObjectName("Chip")
         self._btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self._btn.setCheckable(True)
-        self._btn.clicked.connect(self.clicked.emit)
+        self._btn.clicked.connect(lambda _=False, o=opt: self.clicked.emit())
         lay.addWidget(self._btn)
 
         self.size_lbl = QLabel("\u2014")

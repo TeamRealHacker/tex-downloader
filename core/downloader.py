@@ -17,6 +17,16 @@ from .metadata import ffmpeg_location
 from .naming import render_path, unique_path
 
 
+def _fmt_ytdlp_time(seconds: float) -> str:
+    """Format seconds as HH:MM:SS or MM:SS for yt-dlp --download-sections."""
+    s = max(0.0, seconds)
+    h, rem = divmod(int(s), 3600)
+    m, sec = divmod(rem, 60)
+    if h:
+        return f"{h}:{m:02d}:{sec:02d}"
+    return f"{m:02d}:{sec:02d}"
+
+
 def _safe_int(val: Any, default: int = 0) -> int:
     """Convert *val* to int without raising on bad input."""
     try:
@@ -148,15 +158,11 @@ class DownloaderWorker(QThread):
             opts["ratelimit"] = _safe_int(config.get("speed_limit_bps"), 0)
 
         # Trim support: use yt-dlp's --download-sections for segment downloads.
-        trim_start = getattr(req, 'trim_start', 0.0) or 0.0
-        trim_end = getattr(req, 'trim_end', 0.0) or 0.0
-        if trim_start > 0 or trim_end > 0:
+        if req.trim_start > 0 or req.trim_end > 0:
             opts["download_sections"] = True
             opts["force_keyframes_at_cuts"] = True
-            section_start = f"{int(trim_start)//60:02d}:{int(trim_start)%60:02d}"
-            section_end = f"{int(trim_end)//60:02d}:{int(trim_end)%60:02d}"
-            opts["section_start"] = section_start
-            opts["section_end"] = section_end
+            opts["section_start"] = _fmt_ytdlp_time(req.trim_start)
+            opts["section_end"] = _fmt_ytdlp_time(req.trim_end)
 
         # Format / post-processors
         if quality.kind == "audio":
