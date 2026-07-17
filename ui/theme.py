@@ -5,13 +5,26 @@ Mixed case. Sans is the fallback; the dot-matrix/mono is the brand identity.
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 from PySide6.QtCore import QFile, QUrl
 from PySide6.QtGui import QFont, QFontDatabase
 from PySide6.QtWidgets import QApplication
 
-ASSETS = Path(__file__).resolve().parent.parent / "assets"
+
+def _assets_dir() -> Path:
+    """Resolve the assets/ directory — works in dev and PyInstaller frozen mode."""
+    if getattr(sys, "frozen", False):
+        if hasattr(sys, "_MEIPASS"):
+            # PyInstaller --onefile: assets extracted to temp _MEIPASS dir.
+            return Path(sys._MEIPASS) / "assets"
+        # PyInstaller --onedir: assets/ lives next to the EXE.
+        return Path(sys.executable).resolve().parent / "assets"
+    return Path(__file__).resolve().parent.parent / "assets"
+
+
+ASSETS = _assets_dir()
 MONO_CANDIDATES = [
     ASSETS / "fonts" / "DotGothic16-Regular.ttf",
     ASSETS / "fonts" / "Ndot57.ttf",

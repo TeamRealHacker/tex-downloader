@@ -386,8 +386,6 @@ class SettingsPanel(QFrame):
             try:
                 import yt_dlp
                 ytdlp_ver = getattr(yt_dlp, "version", None) or "unknown"
-                if hasattr(ytdlp_ver, "__version__"):
-                    ytdlp_ver = ytdlp_ver.__version__
             except Exception:
                 ytdlp_ver = "unknown"
 

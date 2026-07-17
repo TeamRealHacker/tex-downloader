@@ -748,6 +748,7 @@ class TexWindow(QMainWindow):
                 self._fetch_worker.requestInterruption()
                 self._fetch_worker.quit()
                 self._fetch_worker.wait(3000)
+            self._fetch_worker.deleteLater()
         self._fetch_worker = _FetchWorker(url)
         self._fetch_worker.ok.connect(self._on_fetch_ok)
         self._fetch_worker.fail.connect(self._on_fetch_fail)
@@ -1055,6 +1056,7 @@ class TexWindow(QMainWindow):
                 self._channel_worker.requestInterruption()
                 self._channel_worker.quit()
                 self._channel_worker.wait(3000)
+            self._channel_worker.deleteLater()
         self._channel_worker = _ChannelWorker(url, content_type, max_count)
         self._channel_worker.ok.connect(self._on_channel_ok)
         self._channel_worker.fail.connect(self._on_channel_fail)
@@ -1223,6 +1225,9 @@ class TexWindow(QMainWindow):
     # ---------- Clipboard ----------
     def _on_url_from_clipboard(self, url: str) -> None:
         if self.isActiveWindow():
+            # Skip if the URL bar already shows this exact URL
+            if self.url_bar.text().strip() == url.strip():
+                return
             self._show_toast(f"URL detected \u00B7 {url[:40]}")
             self.sound.play("tick")
             self.url_bar.set_text(url)

@@ -62,7 +62,17 @@ def tag_mp3(
             except Exception:
                 img = None
         if img:
-            mime = "image/jpeg"
+            # Detect actual MIME type from the image bytes header.
+            _MIME_MAP = {
+                b"\x89PNG": "image/png",
+                b"GIF8": "image/gif",
+                b"RIFF": "image/webp",  # RIFF....WEBP
+            }
+            mime = "image/jpeg"  # default fallback
+            for magic, m in _MIME_MAP.items():
+                if img[:8].startswith(magic) or magic in img[:12]:
+                    mime = m
+                    break
             audio.tags.add(APIC(
                 encoding=3, mime=mime, type=3, desc="cover",
                 data=img,

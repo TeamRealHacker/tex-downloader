@@ -33,6 +33,9 @@ import sys as _sys
 def _assets_dir() -> Path:
     """Resolve the assets/ directory — works in dev and PyInstaller frozen mode."""
     if getattr(_sys, "frozen", False):
+        if hasattr(_sys, "_MEIPASS"):
+            # PyInstaller --onefile: assets extracted to temp _MEIPASS dir.
+            return Path(_sys._MEIPASS) / "assets"
         # PyInstaller --onedir: assets/ lives next to the EXE.
         return Path(_sys.executable).resolve().parent / "assets"
     return Path(__file__).resolve().parent.parent / "assets"

@@ -379,4 +379,9 @@ class TitleBar(QFrame):
             a.setLoopCount(-1)
             a.start()
         else:
+            # Stop any running infinite animation before removing the effect,
+            # otherwise the animation writes to a destroyed object (use-after-free).
+            for child in self._title.findChildren(QPropertyAnimation):
+                child.stop()
+                child.deleteLater()
             self._title.setGraphicsEffect(None)
