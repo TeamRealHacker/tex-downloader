@@ -174,7 +174,16 @@ class _EditorFetchWorker(QThread):
             from core.metadata import fetch
             self.ok.emit(fetch(self.url))
         except Exception as e:
-            self.fail.emit(str(e))
+            from core.cookies import is_browser_cookie_error
+            err = str(e)
+            if is_browser_cookie_error(err):
+                try:
+                    self.ok.emit(fetch(self.url, no_cookies=True))
+                    return
+                except Exception as e2:
+                    self.fail.emit(str(e2))
+                    return
+            self.fail.emit(err)
 
 
 # ─── Editor Panel ──────────────────────────────────────────────────────

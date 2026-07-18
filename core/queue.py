@@ -79,6 +79,14 @@ class DownloadQueue(QObject):
     def active_count(self) -> int:
         return sum(1 for it in self._items.values() if it.status == "active")
 
+    def pending_count(self) -> int:
+        """Count items that are still waiting or in progress."""
+        return sum(1 for it in self._items.values()
+                   if it.status in ("active", "paused", "pending"))
+
+    def get_item(self, item_id: str) -> QueueItem | None:
+        return self._items.get(item_id)
+
     def all_items(self) -> list[QueueItem]:
         return [self._items[k] for k in self._order]
 

@@ -179,7 +179,18 @@ class _ChannelWorker(QThread):
             from core.channel import fetch_channel
             self.ok.emit(fetch_channel(self.url, self.content_type, self.max_count))
         except Exception as e:
-            self.fail.emit(str(e))
+            from core.cookies import is_browser_cookie_error
+            err = str(e)
+            if is_browser_cookie_error(err):
+                try:
+                    from core import config as _cfg
+                    _cfg.save({**_cfg.load(), "cookies_from_browser": "none"})
+                    self.ok.emit(fetch_channel(self.url, self.content_type, self.max_count))
+                    return
+                except Exception as e2:
+                    self.fail.emit(str(e2))
+                    return
+            self.fail.emit(err)
 
 
 # ---------- Main window ----------
@@ -728,11 +739,14 @@ class TexWindow(QMainWindow):
             return
         # Hot path: if the result is already memoized, skip the worker thread
         # entirely (saves the QThread + queued-signal roundtrip).
-        cached = metadata._cache_get(url, False)
-        if cached is not None:
-            self._set_state("idle")
-            self._on_fetch_ok(cached)
-            return
+        try:
+            cached = metadata._cache_get(url, False)
+            if cached is not None:
+                self._set_state("idle")
+                self._on_fetch_ok(cached)
+                return
+        except (AttributeError, TypeError):
+            pass  # _cache_get renamed or signature changed — fall through
         self._set_state("fetching")
         self._show_toast("Fetching\u2026")
         self.sound.play("fetch")
@@ -924,29 +938,25 @@ class TexWindow(QMainWindow):
         active = self.queue.active_count()
         total = self.queue.slots()
         self.queue_bar.update_active(active, total)
-        self.sidebar.set_badge("queue", sum(
-            1 for it in self.queue.all_items()
-            if it.status in ("active", "paused", "pending")
-        ))
+        self.sidebar.set_badge("queue", self.queue.pending_count())
         self._set_state("downloading" if active else "idle")
 
     def _on_started(self, item_id: str) -> None:
-        for it in self.queue.all_items():
-            if it.item_id == item_id:
-                card = ProgressCard(theme=self._theme_palette)
-                # Fall back to URL for bulk downloads where title is empty.
-                card.set_title(it.req.title or it.req.url)
-                self.queue_progress.layout().insertWidget(0, card)
-                self.queue_progress.setVisible(True)
-                # Hide the empty state overlay now that we have real cards.
-                if hasattr(self, "queue_empty") and self.queue_empty is not None:
-                    self.queue_empty.setVisible(False)
-                self._per_video_progress[item_id] = card
-                card.cancel.connect(lambda iid=item_id: self.queue.cancel(iid))
-                card.pause_toggle.connect(lambda iid=item_id: self.queue.toggle_pause(iid))
-                card.open_folder.connect(self._open_path)
-                anim.slide_up_in(card, distance=6, duration_ms=200)
-                break
+        it = self.queue.get_item(item_id)
+        if it:
+            card = ProgressCard(theme=self._theme_palette)
+            # Fall back to URL for bulk downloads where title is empty.
+            card.set_title(it.req.title or it.req.url)
+            self.queue_progress.layout().insertWidget(0, card)
+            self.queue_progress.setVisible(True)
+            # Hide the empty state overlay now that we have real cards.
+            if hasattr(self, "queue_empty") and self.queue_empty is not None:
+                self.queue_empty.setVisible(False)
+            self._per_video_progress[item_id] = card
+            card.cancel.connect(lambda iid=item_id: self.queue.cancel(iid))
+            card.pause_toggle.connect(lambda iid=item_id: self.queue.toggle_pause(iid))
+            card.open_folder.connect(self._open_path)
+            anim.slide_up_in(card, distance=6, duration_ms=200)
         self.queue_bar.update_active(self.queue.active_count(), self.queue.slots())
         self._set_state("downloading")
         # Scroll the new card into view if the queue is already tall.
@@ -967,51 +977,47 @@ class TexWindow(QMainWindow):
 
     def _on_finished(self, item_id: str, ok: bool, result: str) -> None:
         card = self._per_video_progress.get(item_id)
-        for it in self.queue.all_items():
-            if it.item_id == item_id:
-                if ok:
-                    if card:
-                        card.set_path(result)
-                        card.set_status("done")
-                    self._show_toast(f"Done \u00B7 {it.req.title[:50]}")
-                    self.sound.play("done")
-                    self._done_count += 1
-                    if it.req.audio_only:
-                        try:
-                            from core import tags as _tags
-                            _tags.tag_mp3(
-                                Path(result), title=it.req.title,
-                                artist=it.req.uploader, album="Tex downloads",
-                            )
-                        except Exception:
-                            pass
+        it = self.queue.get_item(item_id)
+        if it:
+            if ok:
+                if card:
+                    card.set_path(result)
+                    card.set_status("done")
+                self._show_toast(f"Done \u00B7 {it.req.title[:50]}")
+                self.sound.play("done")
+                self._done_count += 1
+                if it.req.audio_only:
                     try:
-                        size = history.try_get_size(result)
-                        history.add(history.HistoryEntry(
-                            title=it.req.title, uploader=it.req.uploader, url=it.req.url,
-                            quality=it.req.quality_key,
-                            kind="audio" if it.req.audio_only else "video",
-                            path=result, size=size,
-                            finished_at=__import__("time").time(),
-                        ))
+                        from core import tags as _tags
+                        _tags.tag_mp3(
+                            Path(result), title=it.req.title,
+                            artist=it.req.uploader, album="Tex downloads",
+                        )
                     except Exception:
                         pass
-                else:
-                    if card:
-                        if "Cancel" in result:
-                            card.set_status("cancelled")
-                        else:
-                            card.set_status("error")
-                            card.file_lbl.setText(f"Error \u00B7 {result}")
-                    self._show_toast(f"Error \u00B7 {result[:60]}", 4000)
-                    self.sound.play("error")
-                break
+                try:
+                    size = history.try_get_size(result)
+                    history.add(history.HistoryEntry(
+                        title=it.req.title, uploader=it.req.uploader, url=it.req.url,
+                        quality=it.req.quality_key,
+                        kind="audio" if it.req.audio_only else "video",
+                        path=result, size=size,
+                        finished_at=__import__("time").time(),
+                    ))
+                except Exception:
+                    pass
+            else:
+                if card:
+                    if "Cancel" in result:
+                        card.set_status("cancelled")
+                    else:
+                        card.set_status("error")
+                        card.file_lbl.setText(f"Error \u00B7 {result}")
+                self._show_toast(f"Error \u00B7 {result[:60]}", 4000)
+                self.sound.play("error")
         active = self.queue.active_count()
         self.queue_bar.update_active(active, self.queue.slots())
-        self.sidebar.set_badge("queue", sum(
-            1 for it in self.queue.all_items()
-            if it.status in ("active", "paused", "pending")
-        ))
+        self.sidebar.set_badge("queue", self.queue.pending_count())
         if active == 0:
             self._set_state("idle")
 
@@ -1279,8 +1285,13 @@ class TexWindow(QMainWindow):
             self._channel_worker = None
         self.queue.cancel_all()
         # Wait for active downloads to stop — avoid orphaned yt-dlp subprocesses.
+        # NOTE: QThread.quit() is a no-op for threads using custom run() (no
+        # event loop).  If the 2s wait times out, terminate() is the only way
+        # to unblock a stuck yt-dlp network call and let the process exit.
         for it in self.queue.all_items():
             if it.worker and it.worker.isRunning():
                 it.worker.quit()
-                it.worker.wait(2000)
+                if not it.worker.wait(2000):
+                    it.worker.terminate()
+                    it.worker.wait(1000)
         QApplication.instance().quit()
