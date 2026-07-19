@@ -108,7 +108,7 @@ def _filter_short(entry: dict, want: str) -> bool:
 
 
 def fetch_channel(url: str, content_type: str = "videos",
-                  max_count: int = 10) -> ChannelInfo:
+                  max_count: int = 10, no_cookies: bool = False) -> ChannelInfo:
     """List videos from a channel.
 
     ``content_type``: ``"videos"`` | ``"shorts"`` | ``"all"``
@@ -143,9 +143,9 @@ def fetch_channel(url: str, content_type: str = "videos",
     ffm = ffmpeg_location()
     if ffm:
         opts["ffmpeg_location"] = ffm
-    if cfg.get("cookies_file"):
+    if cfg.get("cookies_file") and not no_cookies:
         opts["cookiefile"] = cfg["cookies_file"]
-    else:
+    elif not no_cookies:
         from .cookies import detect_browser
         browser = (cfg.get("cookies_from_browser", "auto") or "auto").strip().lower()
         if browser and browser not in ("none", "off", "no", "false", "0"):

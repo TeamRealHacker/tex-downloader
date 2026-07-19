@@ -183,9 +183,8 @@ class _ChannelWorker(QThread):
             err = str(e)
             if is_browser_cookie_error(err):
                 try:
-                    from core import config as _cfg
-                    _cfg.save({**_cfg.load(), "cookies_from_browser": "none"})
-                    self.ok.emit(fetch_channel(self.url, self.content_type, self.max_count))
+                    from core.channel import fetch_channel
+                    self.ok.emit(fetch_channel(self.url, self.content_type, self.max_count, no_cookies=True))
                     return
                 except Exception as e2:
                     self.fail.emit(str(e2))
@@ -404,6 +403,9 @@ class TexWindow(QMainWindow):
         # Editor page — trim video segments
         self.page_editor = EditorPanel(theme=self._theme_palette)
         self.page_editor.trim_requested.connect(self._on_trim_download)
+        self.page_editor.retried_without_cookies.connect(
+            lambda: self._show_toast("Browser cookies failed · retried without", 4000)
+        )
         self.stack.addWidget(self.page_editor)
         # Channels page — bulk download from YouTube/TikTok/Instagram channels
         self.page_channels = ChannelPanel(theme=self._theme_palette)
@@ -1100,11 +1102,15 @@ class TexWindow(QMainWindow):
         trim_label = f"{self._fmt_sec(start_sec)}-{self._fmt_sec(end_sec)}"
         # Use the video title from the editor result if available
         video_title = ""
+        video_uploader = ""
+        video_id = ""
         if self.page_editor._result and self.page_editor._result.video:
             video_title = self.page_editor._result.video.title
+            video_uploader = self.page_editor._result.video.uploader or ""
+            video_id = self.page_editor._result.video.id or ""
         title = f"{video_title} [Trim {trim_label}]" if video_title else f"[Trim] {trim_label}"
         req = DownloadRequest(
-            url=url, title=title, uploader="", vid_id="",
+            url=url, title=title, uploader=video_uploader, vid_id=video_id,
             quality_key=quality.key, out_dir=str(out_dir), template=tpl,
             audio_only=False,
             trim_start=start_sec, trim_end=end_sec,

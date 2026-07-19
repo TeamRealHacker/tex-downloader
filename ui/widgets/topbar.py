@@ -80,15 +80,18 @@ class TopBar(QFrame):
         for w in (self._pill, self._pill_text, self._pill_dot):
             w.style().unpolish(w)
             w.style().polish(w)
-        # Pulse brand dot
+        # Pulse brand dot — stop previous animation to avoid leaking
+        # QPropertyAnimation objects (use-after-free on the old effect).
         if state in ("downloading", "fetching"):
             from PySide6.QtGui import QColor
             from PySide6.QtCore import QPropertyAnimation
             from PySide6.QtWidgets import QGraphicsColorizeEffect
-            eff = self._brand_dot.graphicsEffect()
-            if not isinstance(eff, QGraphicsColorizeEffect):
-                eff = QGraphicsColorizeEffect(self._brand_dot)
-                self._brand_dot.setGraphicsEffect(eff)
+            # Clean up any previous infinite-loop animation.
+            for child in self._brand_dot.findChildren(QPropertyAnimation):
+                child.stop()
+                child.deleteLater()
+            eff = QGraphicsColorizeEffect(self._brand_dot)
+            self._brand_dot.setGraphicsEffect(eff)
             eff.setColor(QColor("#FFFFFF"))
             a = QPropertyAnimation(eff, b"strength", self._brand_dot)
             a.setDuration(1100)
@@ -98,6 +101,10 @@ class TopBar(QFrame):
             a.setLoopCount(-1)
             a.start()
         else:
+            # Stop any running infinite animation before removing the effect.
+            for child in self._brand_dot.findChildren(QPropertyAnimation):
+                child.stop()
+                child.deleteLater()
             self._brand_dot.setGraphicsEffect(None)
             self._brand_dot.setStyleSheet(
                 f"color: #D7191A; font-size: 16px; font-weight: 700;"

@@ -164,6 +164,7 @@ def _fmt_time(s: float) -> str:
 class _EditorFetchWorker(QThread):
     ok = Signal(object)
     fail = Signal(str)
+    retried_without_cookies = Signal()
 
     def __init__(self, url: str, parent=None):
         super().__init__(parent)
@@ -177,6 +178,7 @@ class _EditorFetchWorker(QThread):
             from core.cookies import is_browser_cookie_error
             err = str(e)
             if is_browser_cookie_error(err):
+                self.retried_without_cookies.emit()
                 try:
                     self.ok.emit(fetch(self.url, no_cookies=True))
                     return
@@ -190,6 +192,7 @@ class _EditorFetchWorker(QThread):
 
 class EditorPanel(QFrame):
     trim_requested = Signal(str, float, float, object)  # url, start, end, quality
+    retried_without_cookies = Signal()
 
     def __init__(self, theme: dict | None = None, parent=None):
         super().__init__(parent)
@@ -360,6 +363,7 @@ class EditorPanel(QFrame):
         self._worker = _EditorFetchWorker(url)
         self._worker.ok.connect(self._on_fetch_ok)
         self._worker.fail.connect(self._on_fetch_fail)
+        self._worker.retried_without_cookies.connect(self.retried_without_cookies.emit)
         self._worker.start()
 
     def _on_fetch_ok(self, result) -> None:

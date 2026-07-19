@@ -219,6 +219,18 @@ class DownloadQueue(QObject):
         if not it:
             return
         it.finished_at = time.time()
+        # Disconnect signals and schedule worker cleanup — the thread has
+        # already finished running, but the QThread object stays in memory
+        # until explicitly deleted.
+        if it.worker:
+            try:
+                it.worker.progress.disconnect()
+                it.worker.status.disconnect()
+                it.worker.finished.disconnect()
+            except RuntimeError:
+                pass
+            it.worker.deleteLater()
+            it.worker = None
         if ok:
             it.status = "done"
             it.result_path = result

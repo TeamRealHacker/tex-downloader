@@ -210,6 +210,8 @@ class DownloaderWorker(QThread):
                 self.status.emit(self.tag, "DOWNLOADING")
 
             now = time.time()
+            downloaded = 0
+            total = 0
             if d.get("status") == "downloading":
                 total = d.get("total_bytes") or d.get("total_bytes_estimate") or 0
                 downloaded = d.get("downloaded_bytes") or 0
